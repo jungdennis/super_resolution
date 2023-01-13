@@ -196,9 +196,12 @@ if __name__ == "__main__":
         scheduler.step()
         lr.update_batch()
 
-        loss_train.update_epoch(path = "./log_classification")
-        accuracy_train.update_epoch(path = "./log_classification")
+        lt = loss_train.update_epoch(path = "./log_classification", is_return = True)
+        at = accuracy_train.update_epoch(path = "./log_classification", is_return = True)
         lr.update_epoch(path = "./log_classification")
+
+        print("train : loss {}, accuracy {}".format(lt, at))
+        print("------------------------------------------------------------------------")
     '''
         # valid
         for i_dataloader in dataloader_valid:
