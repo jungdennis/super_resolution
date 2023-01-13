@@ -48,7 +48,7 @@ class Dataset_for_SR(data.Dataset):
 
             if self.is_train:
                 self.flip_hori = kwargs['flip_hori']  # (bool) 수평 반전
-                self.flip_vert = kwargs['flip_vert']  # (bool) 수직반전
+                self.flip_vert = kwargs['flip_vert']  # (bool) 수직 반전
             else:
                 self.flip_hori = False
                 self.flip_vert = False
