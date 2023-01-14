@@ -33,6 +33,8 @@ path_test_img = "/test/images"
 
 path_model = "/IMDN"
 
+path_log = "C:/super_resolution/log_sr"
+
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 
 # Dataset settings
@@ -303,13 +305,13 @@ if __name__ == "__main__":
             psnr_valid.update_batch()
             ssim_valid.update_batch()
 
-        _lt = loss_train.update_epoch(is_return=True, path = "./log_sr")
-        _pt = psnr_train.update_epoch(is_return=True, path = "./log_sr")
-        _st = ssim_train.update_epoch(is_return=True, path = "./log_sr")
-        _lv = loss_valid.update_epoch(is_return=True, path = "./log_sr")
-        _pv = psnr_valid.update_epoch(is_return=True, path = "./log_sr")
-        _sv = ssim_valid.update_epoch(is_return=True, path = "./log_sr")
-        _lr = lr.update_epoch(is_return=True,  path = "./log_sr")
+        _lt = loss_train.update_epoch(is_return=True, path = "./log_sr" + path_model)
+        _pt = psnr_train.update_epoch(is_return=True, path = "./log_sr" + path_model)
+        _st = ssim_train.update_epoch(is_return=True, path = "./log_sr" + path_model)
+        _lv = loss_valid.update_epoch(is_return=True, path = "./log_sr" + path_model)
+        _pv = psnr_valid.update_epoch(is_return=True, path = "./log_sr" + path_model)
+        _sv = ssim_valid.update_epoch(is_return=True, path = "./log_sr" + path_model)
+        _lr = lr.update_epoch(is_return=True,  path = "./log_sr" + path_model)
 
         lr_list.append(_lr)
         loss_train_list.append(_lt)
@@ -330,7 +332,7 @@ if __name__ == "__main__":
             'loss_valid': loss_valid_list,
             'psnr_valid': psnr_valid_list,
             'ssim_valid': ssim_valid_list,
-        }, "C:/super_resolution/log_sr/checkpoint" + path_model + f"/epoch{i_epoch}.pt")
+        }, path_log + path_model + f"/checkpoint/epoch{i_epoch}.pt")
 
         print("train : loss {}, psnr {}, ssim : {}".format(_lt, _pt, _st))
         print("valid : loss {}, psnr {}, ssim : {}".format(_lv, _pv, _sv))

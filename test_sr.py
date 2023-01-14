@@ -116,7 +116,7 @@ if __name__ == "__main__":
     model.to(device)
     criterion = torch.nn.L1Loss()
     HP_LR = 2e-4
-    HP_EPOCH = 10
+    HP_EPOCH = 400
     HP_BATCH = 16
     HP_SEED = 485
     optimizer = torch.optim.Adam(model.parameters()
