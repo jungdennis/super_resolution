@@ -1,4 +1,5 @@
 import os
+import random
 
 import torch.utils.data as data
 import torchvision.transforms as transforms
@@ -110,20 +111,26 @@ class Dataset_for_SR(data.Dataset):
 
 # train, valid, test
 if __name__ == "__main__":
-    # 기본 설정 : device, scaler, model, loss, epoch, batch_size, lr, optimizer, scheduler
+    # 기본 설정 : device, scaler, model, loss, epoch, batch_size, random_seed, lr, optimizer, scheduler
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     amp_scaler = torch.cuda.amp.GradScaler(enabled=True)
     model = IMDN(upscale=4)
     model.to(device)
     criterion = torch.nn.L1Loss()
     HP_LR = 2e-4
-    HP_EPOCH = 600
+    HP_EPOCH = 10
     HP_BATCH = 16
+    HP_SEED = 485
     optimizer = torch.optim.Adam(model.parameters()
                                  , lr=HP_LR)
     scheduler = torch.optim.lr_scheduler.StepLR(optimizer=optimizer
                                                 , step_size=50
                                                 , gamma=0.5)
+
+    # random seed 고정
+    random.seed(HP_SEED)
+    np.random.seed(HP_SEED)
+    torch.manual_seed(HP_SEED)
 
     # Ignite를 활용한 PSNR, SSIM 계산을 위한 준비
     def ignite_eval_step(engine, batch):
@@ -141,12 +148,17 @@ if __name__ == "__main__":
     loss_valid = RecordBox(name="loss_valid", is_print=False)
     psnr_valid = RecordBox(name="psnr_valid", is_print=False)
     ssim_valid = RecordBox(name="ssim_valid", is_print=False)
-    loss_test = RecordBox(name="loss_test", is_print=False)
-    psnr_test = RecordBox(name="psnr_test", is_print=False)
-    ssim_test = RecordBox(name="ssim_test", is_print=False)
     lr = RecordBox(name="learning_rate", is_print=False)
 
-    # train, valid, test dataset 설정
+    lr_list = []
+    loss_train_list = []
+    psnr_train_list = []
+    ssim_train_list = []
+    loss_valid_list = []
+    psnr_valid_list = []
+    ssim_valid_list = []
+
+    # train, valid dataset 설정
     dataset_train = Dataset_for_SR(path_hr=path_hr,
                                    path_lr=path_lr,
                                    path_fold=path_fold,
@@ -168,12 +180,6 @@ if __name__ == "__main__":
                                    scale_factor=4,
                                    size_hr=(192, 192),
                                    size_lr=(48, 48))
-
-    dataset_test = Dataset_for_SR(path_hr=path_hr,
-                                  path_lr=path_lr,
-                                  path_fold=path_fold,
-                                  path_image=path_test_img,
-                                  is_test=True)
 
     '''
     dataloader_train = torch.utils.data.DataLoader(dataset     = dataset_train
@@ -200,14 +206,7 @@ if __name__ == "__main__":
                                                    , prefetch_factor=2
                                                    , drop_last=False)
 
-    dataloader_test = DataLoader_multi_worker_FIX(dataset=dataset_test
-                                                  , batch_size=1
-                                                  , shuffle=False
-                                                  , num_workers=2
-                                                  , prefetch_factor=2
-                                                  , drop_last=False)
-
-    # train, valid, test
+    # train, valid
     size = len(dataloader_train.dataset)
     for i_epoch_raw in range(HP_EPOCH):
         i_epoch = i_epoch_raw + 1
@@ -268,16 +267,6 @@ if __name__ == "__main__":
         scheduler.step()
         lr.update_batch()
 
-        torch.save({
-            'epoch': i_epoch,
-            'model_state_dict': model.state_dict(),
-            'optimizer_state_dict': optimizer.state_dict(),
-            'scheduler_state_dict': scheduler.state_dict(),
-            'loss' : _loss_train.item(),
-            'psnr' : _psnr_train,
-            'ssim' : _ssim_train
-        }, "C:/super_resolution/checkpoint_sr" + path_model + f"/epoch{i_epoch}.pt")
-
         # valid
         for i_dataloader in dataloader_valid:
             i_batch_hr, i_batch_lr, i_batch_name = i_dataloader
@@ -314,54 +303,36 @@ if __name__ == "__main__":
             psnr_valid.update_batch()
             ssim_valid.update_batch()
 
-        _lt = loss_train.update_epoch(is_return=True)
-        _pt = psnr_train.update_epoch(is_return=True)
-        _st = ssim_train.update_epoch(is_return=True)
-        _lv = loss_valid.update_epoch(is_return=True)
-        _pv = psnr_valid.update_epoch(is_return=True)
-        _sv = ssim_valid.update_epoch(is_return=True)
-        lr.update_epoch()
+        _lt = loss_train.update_epoch(is_return=True, path = "./log_sr")
+        _pt = psnr_train.update_epoch(is_return=True, path = "./log_sr")
+        _st = ssim_train.update_epoch(is_return=True, path = "./log_sr")
+        _lv = loss_valid.update_epoch(is_return=True, path = "./log_sr")
+        _pv = psnr_valid.update_epoch(is_return=True, path = "./log_sr")
+        _sv = ssim_valid.update_epoch(is_return=True, path = "./log_sr")
+        _lr = lr.update_epoch(is_return=True,  path = "./log_sr")
+
+        lr_list.append(_lr)
+        loss_train_list.append(_lt)
+        psnr_train_list.append(_pt)
+        ssim_train_list.append(_st)
+        loss_valid_list.append(_lv)
+        psnr_valid_list.append(_pv)
+        ssim_valid_list.append(_sv)
+
+        torch.save({
+            'epoch': i_epoch,
+            'model_state_dict': model.state_dict(),
+            'optimizer_state_dict': optimizer.state_dict(),
+            'scheduler_state_dict': scheduler.state_dict(),
+            'loss_train': loss_train_list,
+            'psnr_train': psnr_train_list,
+            'ssim_train': ssim_train_list,
+            'loss_valid': loss_valid_list,
+            'psnr_valid': psnr_valid_list,
+            'ssim_valid': ssim_valid_list,
+        }, "C:/super_resolution/log_sr/checkpoint" + path_model + f"/epoch{i_epoch}.pt")
+
         print("train : loss {}, psnr {}, ssim : {}".format(_lt, _pt, _st))
         print("valid : loss {}, psnr {}, ssim : {}".format(_lv, _pv, _sv))
         print("------------------------------------------------------------------------")
-
-    # test
-    for i_dataloader in dataloader_test:
-        i_batch_hr, i_batch_lr, i_batch_name = i_dataloader
-        i_batch_hr = i_batch_hr.to(device)
-        i_batch_lr = i_batch_lr.to(device)
-
-        with torch.no_grad():
-            i_batch_sr = model(i_batch_lr)
-            _loss_test = criterion(i_batch_sr, i_batch_hr)
-            loss_test.add_item(_loss_test.item())
-
-            ts_hr = torch.clamp(i_batch_hr[0], min=0, max=1).to(device)
-            ts_sr = torch.clamp(i_batch_sr[0], min=0, max=1).to(device)  # B C H W
-            name = i_batch_name[0]
-
-            # 이미지 저장
-            pil_sr = to_pil_image(ts_sr)
-            pil_sr.save(path_sr + path_model + path_fold + path_test_img + "/" + name)
-
-            # PSNR, SSIM 계산
-            ts_hr = ts_hr.to(device)
-            ts_sr = ts_sr.to(device)
-
-            ignite_result = ignite_evaluator.run([[torch.unsqueeze(ts_sr, 0)
-                                                   ,torch.unsqueeze(ts_hr, 0)
-                                                   ]])
-
-            _psnr_test = ignite_result.metrics['psnr']
-            _ssim_test = ignite_result.metrics['ssim']
-            psnr_test.add_item(_psnr_test)
-            ssim_test.add_item(_ssim_test)
-
-        loss_test.update_batch()
-        psnr_test.update_batch()
-        ssim_test.update_batch()
-
-    _lte = loss_test.update_epoch(is_return=True)
-    _pte = psnr_test.update_epoch(is_return=True)
-    _ste = ssim_test.update_epoch(is_return=True)
-    print("test : loss {}, psnr {}, ssim {}".format(_lte, _pte, _ste))
+    print("training complete! - check the log and go to test session")
