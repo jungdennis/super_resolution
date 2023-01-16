@@ -1,9 +1,2 @@
-/checkpoint_sr/
-/data_split_open/
-/dataset_backup/
-/DLCs/
-/data/image/
-/image_closed/
-/log_graph/
-/PersonReID Data/
-/project_use_open/
+/data/
+/log/
