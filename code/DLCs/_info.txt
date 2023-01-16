@@ -1,0 +1,53 @@
+v 1.0
+HAN 추가
+
+v 1.1
+HAN  -> not_ready_yet
+IMDN 추가
+
+v 1.2
+IMDN -> 코드 마지막줄 안내문 print 추가 (EoF: ~)
+BSRN 추가
+
+v 1.3
+RFDN 추가
+
+v 1.3.1
+BSRN ESRT IMDN RFDN 주석 수정
+
+v 1.3.2
+DeepLab v3 Plus 주석 수정 & Learning Rate Scheduler 추가
+
+v 1.4 (1.3.1 ~ 1.4 병합됨)
+DeepLab v3 Plus -  Learning Rate Scheduler 수정 (PolyLR)
+DABNet 추가
+
+v 1.5
+CGNet 추가
+
+v 1.5.1
+DeepLab v3 Plus - xception 옵션으로도 n channel input 사용 가능하게 수정
+
+v 1.6
+FPENet 추가
+
+v 1.6.1
+CGNet에서...
+warning 반영하여 F.upsample 을 F.interpolate로 교체
+
+v 1.6.2
+FLOPs 측정기능 추가 (FLOPs.py)
+model_imdn 에서...
+IMDN_RTE class typo 수정 (IMDN class에 영향 없음)
+model_bsrn 에서...
+CosineAnnealingRestartLR scheduler 추가 (BSRN class에 영향 없음)
+
+v 1.7
+PAN 추가 (model_pan.py, EISR network.)
+
+v 2.0
+LAPAR_A 추가
+하위 폴더 (semantic_segmentation, super_resolution) 생성 및 분류 시행
+
+v 2.0.1
+LAPAR_A - Charbonnier Loss 추가
