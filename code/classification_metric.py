@@ -18,6 +18,7 @@ from transformers import get_cosine_schedule_with_warmup
 from DLCs.model_convnext import convnext_small
 from DLCs.mp_dataloader import DataLoader_multi_worker_FIX
 from DLCs.data_record import RecordBox
+from DLCs.metric_tools import metric_histogram, calc_FAR_FRR, calc_EER, graph_FAR_FRR
 
 # Datapath
 path_hr = "C:/super_resolution/data/image/HR"
@@ -26,12 +27,15 @@ path_sr = "C:/super_resolution/data/image/SR"
 
 path_a = "/A_set"
 path_b = "/B_set"
+path_fold = path_b
 
 path_train_img = "/train/images"
 path_val_img = "/val/images"
 path_test_img = "/test/images"
 
 path_log = "C:/super_resolution/log/log_classification/metric_log"
+path_metric = path_log + "/metric_HR_B"
+path_rate = path_log + "/FAR_FRR_HR_B.pt"
 
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 
@@ -41,8 +45,7 @@ random.seed(SEED)
 np.random.seed(SEED)
 torch.manual_seed(SEED)
 
-dt_now = datetime.datetime.now()
-time = str(dt_now.year) + "_" + str(dt_now.month) + "_" + str(dt_now.day) + "_" + str(dt_now.hour) + "_" + str(dt_now.minute) + "_" + str(dt_now.second)
+
 
 # Dataset settings
 class Dataset_for_Classification(data.Dataset):
@@ -84,7 +87,7 @@ class Dataset_for_Classification(data.Dataset):
 if __name__ == "__main__":
     # train, valid, test dataset 설정
     dataset_test = Dataset_for_Classification(path_img=path_hr,
-                                              path_fold=path_a,
+                                              path_fold=path_fold,
                                               path_data=path_test_img)
 
     # dataset을 dataloader에 할당
@@ -166,12 +169,11 @@ if __name__ == "__main__":
     distance_same.sort()
     distance_diff.sort()
     torch.save({'distance_same' : distance_same,
-                'distance_diff' : distance_diff}, path_log + "test_for_rough_convnext_model.pt")
-    print(len(distance_same), len(distance_diff))
+                'distance_diff' : distance_diff}, path_metric)
+    metric_histogram(distance_same, distance_diff, title="Distribution of metric (HR, Fold B)")
 
-    plt.hist(distance_same, histtype = "step", color = "b")
-    plt.show()
-    plt.hist(distance_diff, histtype = "step", color = "g")
-    # plt.title("Distribution of distance")
-    # plt.legend(["same", "diff"])
-    plt.show()
+    threshold, FAR, FRR = calc_FAR_FRR(distance_same, distance_diff, save = path_rate)
+    EER = calc_EER(distance_same, distance_diff)
+    graph_FAR_FRR(threshold, FAR, FRR, show_EER = True, title = "Graph of FAR & FRR (HR, Fold B)")
+    graph_FAR_FRR(threshold, FAR, FRR, show_EER=True, log=False, title="Graph of FAR & FRR (HR, Fold B)")
+    print(EER)

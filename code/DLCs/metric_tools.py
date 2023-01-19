@@ -6,14 +6,18 @@ import torch
 
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 
-def metric_histogram(list_correct, list_wrong, xlim = None, density = False, title = "Distribution of metric") :
-    plt.hist(list_correct, histtype="step", color="b", density=density)
-    plt.hist(list_wrong, histtype="step", color="g", density=density)
+def metric_histogram(list_correct, list_wrong, xlim=None, density=False, title="Distribution of metric"):
+    plt.hist(list_correct, histtype="step", color="b", bins = int(max(list_correct)*2), density=density)
+    plt.hist(list_wrong, histtype="step", color="g", bins = int(max(list_wrong)*2), density=density)
     plt.title(title)
     plt.xlabel("Metric")
-    plt.ylabel("Density")
+    if density is False :
+        plt.ylabel("Count")
+        plt.yscale("log")
+    else :
+        plt.ylabel("Density")
     plt.legend(["same", "different"])
-    if xlim is not None :
+    if xlim is not None:
         plt.xlim(xlim)
     plt.show()
 
@@ -66,16 +70,18 @@ def calc_EER(threshold, FAR, FRR, for_graph = False) :
     else :
         return EER
             
-def graph_FAR_FRR(threshold, FAR, FRR, show_EER = False, xlim = None, ylim = None, title = "Graph of FAR & FRR (HR)") :
+def graph_FAR_FRR(threshold, FAR, FRR, show_EER = False, xlim = None, ylim = None, log = True, title = "Graph of FAR & FRR") :
     plt.plot(threshold, FAR, color="b")
     plt.plot(threshold, FRR, color="g")
     if show_EER :
         EER, x = calc_EER(threshold, FAR, FRR, for_graph = True)
-        plt.scatter(x, EER, marker ="o", Color = "r")
+        plt.scatter(x, EER, marker ="o", color = "r")
         
     plt.title(title)
     plt.xlabel("Distance")
     plt.ylabel("Rate")
+    if log :
+        plt.yscale("log")
     
     if show_EER :
         plt.legend(["FAR", "FRR", "EER"])
@@ -88,42 +94,5 @@ def graph_FAR_FRR(threshold, FAR, FRR, show_EER = False, xlim = None, ylim = Non
         plt.ylim(xlim) 
     
     plt.show()
-            
-
-if __name__ == "__main__" :
-    path_log = "C:/super_resolution/log/log_classification/metric_log"
-    save_path = path_log + "/FAR_FRR_SR.pt"
-    
-    data = torch.load("C:\super_resolution\log\log_classification\metric_logtest_for_rough_convnext_model.pt")
-    distance_same = np.array(data["distance_same"])
-    distance_diff = np.array(data["distance_diff"])
-
-    print(len(distance_same), len(distance_diff))
-
-    # 히스토그램 로그스케일로 한번 해보기
-    # plt.hist(distance_same, histtype="step", color="b")
-    # plt.hist(distance_diff, histtype="step", color="g")
-    # plt.title("Distribution of distance (HR)")
-    # plt.xlabel("Distance")
-    # plt.ylabel("Count")
-    # plt.legend(["same", "diff"])
-    # plt.show()
-    #
-    # 
-    
-    
-    # threshold, FAR, FRR = calc_FAR_FRR(list_correct = distance_same,
-    #                                    list_wrong = distance_diff,
-    #                                    save = save_path)
-
-    save_data = torch.load(save_path)
-    threshold = save_data["threshold"]
-    FAR = save_data["FAR"]
-    FRR = save_data["FRR"]
-    graph_FAR_FRR(threshold, FAR, FRR)
-    
-    EER = calc_EER(threshold, FAR, FRR)
-    graph_FAR_FRR(threshold, FAR, FRR, show_EER = True)
-    print(EER)
     
     
