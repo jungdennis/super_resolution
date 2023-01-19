@@ -2,24 +2,21 @@ import os
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import datetime
+import random
 
 import cv2
 from PIL import Image
 
 import torch
 import torch.utils.data as data
-from transformers import get_cosine_schedule_with_warmup
 import torch.nn as nn
-import torchvision.transforms as transforms
-from torchvision import models
-# from torchvision.models.convnext import LayerNorm2d
 from torch.nn.functional import one_hot
+import torchvision.transforms as transforms
+from transformers import get_cosine_schedule_with_warmup
+
 from DLCs.model_convnext import convnext_small
-
-from timm.data import create_transform
-
 from DLCs.mp_dataloader import DataLoader_multi_worker_FIX
-from DLCs.data_tools import imshow_pil, imshow_ts
 from DLCs.data_record import RecordBox
 
 # Datapath
@@ -34,7 +31,18 @@ path_train_img = "/train/images"
 path_val_img = "/val/images"
 path_test_img = "/test/images"
 
+path_log = "C:/super_resolution/log/log_classification/make_model"
+
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
+
+# random seed 고정
+SEED = 485
+random.seed(SEED)
+np.random.seed(SEED)
+torch.manual_seed(SEED)
+
+dt_now = datetime.datetime.now()
+time = str(dt_now.year) + "_" + str(dt_now.month) + "_" + str(dt_now.day) + "_" + str(dt_now.hour) + "_" + str(dt_now.minute) + "_" + str(dt_now.second)
 
 # Dataset settings
 class Dataset_for_Classification(data.Dataset):
@@ -88,31 +96,11 @@ if __name__ == "__main__":
     dataset_test = Dataset_for_Classification()
     '''
 
-    # 학습 설정
-    # device, scaler, model, loss, epoch, batch_size, lr, optimizer, scheduler
-    LR = 5e-5
-    EPOCH = 300
-    BATCH_SIZE = 16
-    num_classes = len(dataset_train.label_list)
-
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    amp_scaler = torch.cuda.amp.GradScaler(enabled=True)
-
-    model = convnext_small(pretrained = True, in_22k = True, num_classes = 21841)
-    model.head = nn.Linear(in_features = 768, out_features = num_classes, bias = True)
-    model.to(device)
-    criterion = torch.nn.CrossEntropyLoss()
-
-    optimizer = torch.optim.AdamW(model.parameters(),
-                                  lr=LR,
-                                  weight_decay=1e-8)
-    scheduler = get_cosine_schedule_with_warmup(optimizer,
-                                                num_warmup_steps=0,
-                                                num_training_steps=EPOCH)
-
     # dataset을 dataloader에 할당
     # 원래는 torch의 dataloader를 부르는게 맞지만
     # 멀티코어 활용을 위해 DataLoader_multi_worker_FIX를 import 하여 사용
+    BATCH_SIZE = 16
+
     dataloader_train = DataLoader_multi_worker_FIX(dataset=dataset_train,
                                                    batch_size=BATCH_SIZE,
                                                    shuffle=True,
@@ -138,6 +126,27 @@ if __name__ == "__main__":
                                                   num_workers=2,
                                                   prefetch_factor=2,
                                                   drop_last=False)
+
+    # 학습 설정
+    # device, scaler, model, loss, epoch, batch_size, lr, optimizer, scheduler
+    LR = 5e-5
+    EPOCH = 30
+    num_classes = len(dataset_train.label_list)
+
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    amp_scaler = torch.cuda.amp.GradScaler(enabled=True)
+
+    model = convnext_small(pretrained = True, in_22k = True, num_classes = 21841)
+    model.head = nn.Linear(in_features = 768, out_features = num_classes, bias = True)
+    model.to(device)
+    criterion = torch.nn.CrossEntropyLoss()
+
+    optimizer = torch.optim.AdamW(model.parameters(),
+                                  lr=LR,
+                                  weight_decay=1e-8)
+    scheduler = get_cosine_schedule_with_warmup(optimizer,
+                                                num_warmup_steps=0,
+                                                num_training_steps=EPOCH)
 
     # train, valid, test
     size = len(dataloader_train.dataset)
@@ -187,12 +196,13 @@ if __name__ == "__main__":
         scheduler.step()
         lr.update_batch()
 
-        lt = loss_train.update_epoch(path = "./log_classification", is_return = True)
-        at = accuracy_train.update_epoch(path = "./log_classification", is_return = True)
-        lr.update_epoch(path = "./log_classification")
+        lt = loss_train.update_epoch(path = path_log, is_return = True)
+        at = accuracy_train.update_epoch(path = path_log, is_return = True)
+        lr.update_epoch(path = path_log)
 
-        print("train : loss {}, accuracy {}".format(lt, at))
+        print("train : loss {}, accuracy {}%".format(lt, at))
         print("------------------------------------------------------------------------")
+
     '''
         # valid
         for i_dataloader in dataloader_valid:
@@ -205,6 +215,10 @@ if __name__ == "__main__":
                 loss = criterion(output, label)
                 print(loss.item())
     '''
+
+    # save model
+    torch.save(model, path_log + f"/model/model_classification_{time}.pt")
+
     # test
     correct = 0
     total = 0
@@ -222,4 +236,4 @@ if __name__ == "__main__":
             if predicted.item() == label.item() :
                 correct += 1
 
-    print(f"Test Accuracy : {100 * correct / total}%")
+    print(f"Test Accuracy : {100 * (correct / total)}%")

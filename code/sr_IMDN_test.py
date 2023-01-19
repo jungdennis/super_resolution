@@ -163,6 +163,7 @@ if __name__ == "__main__":
     optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
     scheduler.load_state_dict(checkpoint["scheduler_state_dict"])
 
+    '''
     loss_train = checkpoint["loss_train"]
     psnr_train = checkpoint["psnr_train"]
     ssim_train = checkpoint["ssim_train"]
@@ -193,7 +194,7 @@ if __name__ == "__main__":
     plt.legend(["train", "valid"])
     plt.show()
     plt.savefig("./ssim_a.png")
-
+    '''
 
     loss_test = RecordBox(name="loss_test", is_print=False)
     psnr_test = RecordBox(name="psnr_test", is_print=False)
