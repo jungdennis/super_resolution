@@ -142,7 +142,7 @@ def imshow_np(in_np, **kargs):
 #=== End of imshow_np
 
 #PIL 이미지 출력
-def imshow_pil(in_pil, **kargs):
+def imshow_pil(in_pil, concat = None, **kargs):
     '''
     imshow_pil(#pil image show with plt function
                in_pil
@@ -160,7 +160,7 @@ def imshow_pil(in_pil, **kargs):
     except:
         pass
 
-    if kargs['concat'] is None :
+    if concat is None :
         output = in_pil
     else :
         output = Image.new('RGB', (2*in_pil.size[0], in_pil.size[1]))
