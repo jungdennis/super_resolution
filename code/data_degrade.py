@@ -4,9 +4,9 @@ import numpy as np
 import csv
 import datetime
 
-main_path = "C:/super_resolution/code"
-load_path = "C:/super_resolution/data/data_split_open/RegDB/"
-save_path = "C:/super_resolution/data/image/"
+main_path = "C:/super_resolution/code/"
+load_path = "C:/super_resolution/data/SYSU_split/"
+save_path = "C:/super_resolution/data/image_SYSU/"
 
 # option 변수 설정
 resize_target = 256
@@ -19,9 +19,9 @@ def degrade(fold, set, name) :
     read_path = load_path + fold + "/" + set + "/images/" + name
     img_in = cv2.imread(read_path)
 
-    # 256*256으로 resize 하여 HR 만들기
-    size_resize = (resize_target, resize_target)
-    img_resize = cv2.resize(img_in, size_resize, cv2.INTER_LANCZOS4)
+    # 256*256으로 resize 하여 Original 만들기
+    resize = (resize_target, resize_target)
+    img_resize = cv2.resize(img_in, resize, cv2.INTER_LANCZOS4)
 
     save_path_hr = save_path + "HR/" + fold + "/" + set + "/images/" + name
     cv2.imwrite(save_path_hr, img_resize)
@@ -73,7 +73,7 @@ for fold in fold_list :
         list_path = load_path + fold + "/" + set + "/images/"
         fold_dict[set] = os.listdir(list_path)
 
-# HR, SR 이미지 생성 및 저장
+# Original, LR 이미지 생성 및 저장
 for fold in fold_list :
     for set in set_list :
         img_list = img_dict[fold][set]

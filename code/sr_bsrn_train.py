@@ -4,6 +4,7 @@ import random
 import torch.utils.data as data
 import torchvision.transforms as transforms
 import ignite
+from transformers import get_cosine_schedule_with_warmup
 from torchvision.transforms.functional import to_pil_image
 
 from DLCs.data_tools import pil_marginer_v3, pil_augm_lite, imshow_pil
@@ -16,7 +17,7 @@ from PIL import Image, ImageFilter
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt
-from DLCs.super_resolution.model_imdn import IMDN
+from DLCs.super_resolution.model_bsrn import BSRN
 
 # Data path
 path_hr = "C:/super_resolution/data/image/HR"
@@ -31,7 +32,7 @@ path_train_img = "/train/images"
 path_valid_img = "/val/images"
 path_test_img = "/test/images"
 
-path_model = "/IMDN"
+path_model = "/BSRN"
 
 path_log = "C:/super_resolution/log/log_sr"
 
@@ -52,9 +53,11 @@ class Dataset_for_SR(data.Dataset):
             if self.is_train:
                 self.flip_hori = kwargs['flip_hori']  # (bool) 수평 반전
                 self.flip_vert = kwargs['flip_vert']  # (bool) 수직 반전
+                self.rotate = kwargs['rotate']        # (bool) 회전
             else:
                 self.flip_hori = False
                 self.flip_vert = False
+                self.rotate = False
             self.scale_factor = kwargs['scale_factor']
             self.size_hr = kwargs['size_hr']  # (w(int), h(int))
             self.size_lr = kwargs['size_lr']
@@ -70,7 +73,7 @@ class Dataset_for_SR(data.Dataset):
         # 이미지 파일 이름 뽑아오기
         _name = self.list_files[idx]
 
-        # HR, LR 이미지 불러오기
+        # Original, LR 이미지 불러오기
         pil_hr = Image.open(self.path_hr + self.path_fold + self.path_image + "/" + _name)
         pil_lr = Image.open(self.path_lr + self.path_fold + self.path_image + "/" + _name)
 
@@ -79,27 +82,25 @@ class Dataset_for_SR(data.Dataset):
 
         # train일 경우 image crop, data augmentaion 진행
         if self.is_test is False:
-            pil_hr_patch, pil_lr_patch = pil_marginer_v3(in_pil_hr=pil_hr
-                                                         , target_size_hr=self.size_hr
-                                                         , img_background=(0, 0, 0)
+            pil_hr_patch, pil_lr_patch = pil_marginer_v3(in_pil_hr = pil_hr,
+                                                         target_size_hr = self.size_hr,
+                                                         img_background = (0, 0, 0),
                                                          # (선택) 세부옵션 (각각 default 값 있음)
-                                                         , scaler=1.0
-                                                         , is_random=self.is_train
-                                                         , itp_opt_img=Image.LANCZOS
+                                                         scaler = 1.0,
+                                                         is_random = self.is_train,
+                                                         itp_opt_img = Image.LANCZOS,
                                                          # 선택 (LR Image 관련)
-                                                         , in_pil_lr=pil_lr
-                                                         , in_scale_factor=self.scale_factor
-                                                         , target_size_lr=self.size_lr
-                                                         )
+                                                         in_pil_lr = pil_lr,
+                                                         in_scale_factor = self.scale_factor,
+                                                         target_size_lr = self.size_lr)
             # imshow_pil(pil_hr_patch)
             # imshow_pil
 
-            pil_hr_patch, pil_lr_patch = pil_augm_lite(pil_hr_patch
-                                                       , pil_lr_patch
-                                                       , self.flip_hori
-                                                       , self.flip_vert
-                                                       , get_info=False
-                                                       )
+            pil_hr_patch, pil_lr_patch = pil_augm_lite(pil_hr_patch,
+                                                       pil_lr_patch,
+                                                       self.flip_hori,
+                                                       self.flip_vert,
+                                                       get_info = False)
 
             # imshow_pil(pil_hr_patch)
             # imshow_pil(pil_lr_patch)
@@ -116,19 +117,18 @@ if __name__ == "__main__":
     # 기본 설정 : device, scaler, model, loss, epoch, batch_size, random_seed, lr, optimizer, scheduler
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     amp_scaler = torch.cuda.amp.GradScaler(enabled=True)
-    model = IMDN(upscale=4)
+    model = BSRN(upscale=4)
     model.to(device)
     criterion = torch.nn.L1Loss()
-    HP_LR = 2e-4
+    HP_LR = 1e-3
     HP_EPOCH = 400
     HP_BATCH = 16
     HP_SEED = 485
-    optimizer = torch.optim.Adam(model.parameters()
-                                 , lr=HP_LR)
-    scheduler = torch.optim.lr_scheduler.StepLR(optimizer=optimizer
-                                                , step_size=50
-                                                , gamma=0.5)
-
+    optimizer = torch.optim.Adam(model.parameters(),
+                                 lr=HP_LR)
+    scheduler = get_cosine_schedule_with_warmup(optimizer,
+                                                num_warmup_steps = 0,
+                                                num_training_steps = HP_EPOCH)
     # random seed 고정
     random.seed(HP_SEED)
     np.random.seed(HP_SEED)
@@ -169,6 +169,7 @@ if __name__ == "__main__":
                                    is_test=False,
                                    flip_hori=True,
                                    flip_vert=False,
+                                   rotate=True,
                                    scale_factor=4,
                                    size_hr=(192, 192),
                                    size_lr=(48, 48))
@@ -183,30 +184,20 @@ if __name__ == "__main__":
                                    size_hr=(192, 192),
                                    size_lr=(48, 48))
 
-    '''
-    dataloader_train = torch.utils.data.DataLoader(dataset     = dataset_train
-                                                  ,batch_size  = 4
-                                                  ,shuffle     = True
-                                                  ,num_workers = 0
-                                                  ,prefetch_factor = 2
-                                                  ,drop_last = True
-                                                  )
-    '''
-
     # dataset을 dataloader에 할당
-    dataloader_train = DataLoader_multi_worker_FIX(dataset=dataset_train
-                                                   , batch_size=HP_BATCH
-                                                   , shuffle=True
-                                                   , num_workers=2
-                                                   , prefetch_factor=2
-                                                   , drop_last=True)
+    dataloader_train = DataLoader_multi_worker_FIX(dataset=dataset_train,
+                                                   batch_size=HP_BATCH,
+                                                   shuffle=True,
+                                                   num_workers=2,
+                                                   prefetch_factor=2,
+                                                   drop_last=True)
 
-    dataloader_valid = DataLoader_multi_worker_FIX(dataset=dataset_valid
-                                                   , batch_size=1
-                                                   , shuffle=True
-                                                   , num_workers=2
-                                                   , prefetch_factor=2
-                                                   , drop_last=False)
+    dataloader_valid = DataLoader_multi_worker_FIX(dataset=dataset_valid,
+                                                   batch_size=1,
+                                                   shuffle=True,
+                                                   num_workers=2,
+                                                   prefetch_factor=2,
+                                                   drop_last=False)
 
     # train, valid
     size = len(dataloader_train.dataset)
@@ -241,7 +232,11 @@ if __name__ == "__main__":
 
                     # 이미지 저장
                     pil_sr = to_pil_image(ts_sr)
-                    pil_sr.save(path_sr + path_model + path_fold + path_train_img + "/" + name)
+                    try:
+                        pil_sr.save(path_sr + path_model + path_fold + path_train_img + "/" + name)
+                    except:
+                        os.makedirs(path_sr + path_model + path_fold + path_train_img)
+                        pil_sr.save(path_sr + path_model + path_fold + path_train_img + "/" + name)
 
                     # PSNR, SSIM 계산
                     ts_hr = ts_hr.to(device)
@@ -286,7 +281,11 @@ if __name__ == "__main__":
 
                 # 이미지 저장
                 pil_sr = to_pil_image(ts_sr)
-                pil_sr.save(path_sr + path_model + path_fold + path_valid_img + "/" + name)
+                try :
+                    pil_sr.save(path_sr + path_model + path_fold + path_valid_img + "/" + name)
+                except :
+                    os.makedirs(path_sr + path_model + path_fold + path_valid_img)
+                    pil_sr.save(path_sr + path_model + path_fold + path_valid_img + "/" + name)
 
                 #PSNR, SSIM 계산
                 ts_hr = ts_hr.to(device)
@@ -321,18 +320,33 @@ if __name__ == "__main__":
         psnr_valid_list.append(_pv)
         ssim_valid_list.append(_sv)
 
-        torch.save({
-            'epoch': i_epoch,
-            'model_state_dict': model.state_dict(),
-            'optimizer_state_dict': optimizer.state_dict(),
-            'scheduler_state_dict': scheduler.state_dict(),
-            'loss_train': loss_train_list,
-            'psnr_train': psnr_train_list,
-            'ssim_train': ssim_train_list,
-            'loss_valid': loss_valid_list,
-            'psnr_valid': psnr_valid_list,
-            'ssim_valid': ssim_valid_list,
-        }, path_log + path_model + f"/checkpoint/epoch{i_epoch}.pt")
+        try :
+            torch.save({
+                'epoch': i_epoch,
+                'model_state_dict': model.state_dict(),
+                'optimizer_state_dict': optimizer.state_dict(),
+                'scheduler_state_dict': scheduler.state_dict(),
+                'loss_train': loss_train_list,
+                'psnr_train': psnr_train_list,
+                'ssim_train': ssim_train_list,
+                'loss_valid': loss_valid_list,
+                'psnr_valid': psnr_valid_list,
+                'ssim_valid': ssim_valid_list,
+            }, path_log + path_model + f"/checkpoint/epoch{i_epoch}.pt")
+        except :
+            os.makedirs(path_log + path_model + "/checkpoint")
+            torch.save({
+                'epoch': i_epoch,
+                'model_state_dict': model.state_dict(),
+                'optimizer_state_dict': optimizer.state_dict(),
+                'scheduler_state_dict': scheduler.state_dict(),
+                'loss_train': loss_train_list,
+                'psnr_train': psnr_train_list,
+                'ssim_train': ssim_train_list,
+                'loss_valid': loss_valid_list,
+                'psnr_valid': psnr_valid_list,
+                'ssim_valid': ssim_valid_list,
+            }, path_log + path_model + f"/checkpoint/epoch{i_epoch}.pt")
 
         print("train : loss {}, psnr {}, ssim : {}".format(_lt, _pt, _st))
         print("valid : loss {}, psnr {}, ssim : {}".format(_lv, _pv, _sv))

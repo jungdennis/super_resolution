@@ -21,21 +21,21 @@ from DLCs.data_record import RecordBox
 from DLCs.metric_tools import metric_histogram, calc_FAR_FRR, calc_EER, graph_FAR_FRR
 
 # Datapath
-path_hr = "C:/super_resolution/data/image/HR"
-path_lr = "C:/super_resolution/data/image/LR"
-path_sr = "C:/super_resolution/data/image/SR"
+path_hr = "C:/super_resolution/data/image_SYSU/HR"
+path_lr = "C:/super_resolution/data/image_SYSU/LR"
+path_sr = "C:/super_resolution/data/image_SYSU/SR"
 
 path_a = "/A_set"
 path_b = "/B_set"
-path_fold = path_b
+path_fold = path_a
 
 path_train_img = "/train/images"
 path_val_img = "/val/images"
 path_test_img = "/test/images"
 
 path_log = "C:/super_resolution/log/log_classification/metric_log"
-path_metric = path_log + "/metric_HR_B"
-path_rate = path_log + "/FAR_FRR_HR_B.pt"
+path_metric = path_log + "/metric_LR_A_SYSU.pt"
+# path_rate = path_log + "/FAR_FRR_LR_B.pt"
 
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 
@@ -63,7 +63,7 @@ class Dataset_for_Classification(data.Dataset):
 
         self.label_list = []
         for name in self.list_files:
-            label = name.split(".")[0].split("_")[4]
+            label = name.split(".")[0].split("_")[0]
             if label not in self.label_list:
                 self.label_list.append(label)
 
@@ -73,7 +73,7 @@ class Dataset_for_Classification(data.Dataset):
     def __getitem__(self, idx):
         _name = self.list_files[idx]
         pil_img = Image.open(self.path_img + self.path_fold + self.path_data + "/" + _name)
-        label = _name.split(".")[0].split("_")[4]
+        label = _name.split(".")[0].split("_")[0]
 
         '''
         if label not in self.label_list:
@@ -86,7 +86,7 @@ class Dataset_for_Classification(data.Dataset):
 
 if __name__ == "__main__":
     # train, valid, test dataset 설정
-    dataset_test = Dataset_for_Classification(path_img=path_hr,
+    dataset_test = Dataset_for_Classification(path_img=path_lr,
                                               path_fold=path_fold,
                                               path_data=path_test_img)
 
@@ -168,12 +168,13 @@ if __name__ == "__main__":
 
     distance_same.sort()
     distance_diff.sort()
+
     torch.save({'distance_same' : distance_same,
                 'distance_diff' : distance_diff}, path_metric)
-    metric_histogram(distance_same, distance_diff, title="Distribution of metric (HR, Fold B)")
-
-    threshold, FAR, FRR = calc_FAR_FRR(distance_same, distance_diff, save = path_rate)
-    EER = calc_EER(distance_same, distance_diff)
-    graph_FAR_FRR(threshold, FAR, FRR, show_EER = True, title = "Graph of FAR & FRR (HR, Fold B)")
-    graph_FAR_FRR(threshold, FAR, FRR, show_EER=True, log=False, title="Graph of FAR & FRR (HR, Fold B)")
-    print(EER)
+    # metric_histogram(distance_same, distance_diff, title="Distribution of Distance (HR, SYSU)")
+    #
+    # threshold, FAR, FRR = calc_FAR_FRR(distance_same, distance_diff, save = path_rate)
+    # EER = calc_EER(distance_same, distance_diff)
+    # graph_FAR_FRR(threshold, FAR, FRR, show_EER = True, title = "Graph of FAR & FRR (HR, SYSU)")
+    # graph_FAR_FRR(threshold, FAR, FRR, show_EER=True, log=False, title="Graph of FAR & FRR (HR, SYSU)")
+    # print(EER)

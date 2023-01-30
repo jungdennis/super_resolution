@@ -778,7 +778,7 @@ in_pil_x_augm, in_pil_x_lr_augm, in_pil_y_augm, str_used_option = pil_augm_v3(in
 def pil_augm_v3(**kargs):
     name_func = "[pil_augm_v3] -->"
     # [입력 x (image) 관련]---
-    in_pil_x = kargs['in_pil_x']                                                    # (pil) 입력 이미지 x (HR 이미지)
+    in_pil_x = kargs['in_pil_x']                                                    # (pil) 입력 이미지 x (Original 이미지)
     input_x_w, input_x_h = in_pil_x.size                                            # 최종 이미지 크기 확인용
     
     try:
@@ -1482,7 +1482,7 @@ def pil_2_patch_v5(**kargs):
             
             if tmp_center_h - p_half_h >= 0 and tmp_center_h + p_half_h <= in_h:
                 if tmp_center_w - p_half_w >= 0 and tmp_center_w + p_half_w <= in_w:
-                    #HR crop area
+                    #Original crop area
                     center_coor_hr = (int(in_sf * (tmp_center_w - p_half_w))
                                      ,int(in_sf * (tmp_center_h - p_half_h))
                                      ,int(in_sf * (tmp_center_w + p_half_w))
@@ -1495,10 +1495,10 @@ def pil_2_patch_v5(**kargs):
                                      ,int(tmp_center_h + p_half_h)
                                      )
                     
-                    #print("HR:", center_coor_hr)
+                    #print("Original:", center_coor_hr)
                     #print("LR:", center_coor_lr)
                     
-                    #(HR crop area, LR crop area)
+                    #(Original crop area, LR crop area)
                     list_crop_area.append((center_coor_hr, center_coor_lr))
                     
             tmp_center_w += strides_w
@@ -1604,7 +1604,7 @@ def pil_2_patch_v6(**kargs):
     if is_return_img_lr:
         in_w, in_h = in_pil_lr.size
     else:
-        # lr 이미지가 입력되지 않은 경우, HR = LR 로 가정하고 크기 계산 시행
+        # lr 이미지가 입력되지 않은 경우, Original = LR 로 가정하고 크기 계산 시행
         in_sf = 1
         in_w, in_h = in_pil_hr.size
     
@@ -1662,7 +1662,7 @@ def pil_2_patch_v6(**kargs):
     if is_return_img_lr:
         in_w, in_h = in_pil_lr.size
     else:
-        # lr 이미지가 입력되지 않은 경우, HR = LR 로 가정하고 크기 계산 시행
+        # lr 이미지가 입력되지 않은 경우, Original = LR 로 가정하고 크기 계산 시행
         in_sf = 1
         in_w, in_h = in_pil_hr.size
     
@@ -1681,7 +1681,7 @@ def pil_2_patch_v6(**kargs):
             
             if tmp_center_h - p_half_h >= 0 and tmp_center_h + p_half_h <= in_h:
                 if tmp_center_w - p_half_w >= 0 and tmp_center_w + p_half_w <= in_w:
-                    #HR crop area
+                    #Original crop area
                     center_coor_hr = (int(in_sf * (tmp_center_w - p_half_w))
                                      ,int(in_sf * (tmp_center_h - p_half_h))
                                      ,int(in_sf * (tmp_center_w + p_half_w))
@@ -1694,10 +1694,10 @@ def pil_2_patch_v6(**kargs):
                                      ,int(tmp_center_h + p_half_h)
                                      )
                     
-                    #print("HR:", center_coor_hr)
+                    #print("Original:", center_coor_hr)
                     #print("LR:", center_coor_lr)
                     
-                    #(HR crop area, LR crop area)
+                    #(Original crop area, LR crop area)
                     list_crop_area.append((center_coor_hr, center_coor_lr))
                     
             tmp_center_w += strides_w
@@ -1771,7 +1771,7 @@ def pil_marginer_v1(**kargs):
                                                         ,target_size_hr     =
                                                         ,img_background     =
                                                         ,is_random          =
-                                                         # 선택 (HR Label)
+                                                         # 선택 (Original Label)
                                                         ,in_pil_hr_label    = 
                                                         ,lab_background     =
                                                          # 선택 (LR Image)
@@ -1783,7 +1783,7 @@ def pil_marginer_v1(**kargs):
     
     is_random            = kargs['is_random']           # (bool) margin 랜덤여부 결정
     
-    # HR Image
+    # Original Image
     in_pil_hr           = kargs['in_pil_hr']            # (pil)
     _hr_w, _hr_h        = in_pil_hr.size
     _w, _h              = kargs['target_size_hr']       # (tuple with int) width, height
@@ -1795,7 +1795,7 @@ def pil_marginer_v1(**kargs):
     img_background      = (int(min(255, max(0, _r))), int(min(255, max(0, _g))), int(min(255, max(0, _b))))
     
     
-    # HR Label
+    # Original Label
     try:
         in_pil_hr_label = kargs['in_pil_hr_label']      # (pil)
         _n              = kargs['lab_background']       # (tuple with int) (n)
@@ -1876,7 +1876,7 @@ def pil_marginer_v2(**kargs):
                                                         ,is_random          =
                                                         ,itp_opt_img    = Image.LANCZOS
                                                         ,itp_opt_lab    = Image.NEAREST
-                                                         # 선택 (HR Label 관련)
+                                                         # 선택 (Original Label 관련)
                                                         ,in_pil_hr_label    = 
                                                         ,lab_background     =
                                                          # 선택 (LR Image 관련)
@@ -1906,22 +1906,22 @@ def pil_marginer_v2(**kargs):
         itp_opt_lab         = Image.NEAREST
     
     
-    # HR Image
-    in_pil_hr               = kargs['in_pil_hr']                                        # (pil) HR Image
+    # Original Image
+    in_pil_hr               = kargs['in_pil_hr']                                        # (pil) Original Image
     ori_hr_w, ori_hr_h      = in_pil_hr.size                                            # (int int) original input size (W, H)
     
     itp_hr_w, itp_hr_h      = int(ori_hr_w*scaler), int(ori_hr_h*scaler)                # (int int) interpolated input size (W, H)
     
     if scaler != 1:
         itp_size_hr         = (itp_hr_w, itp_hr_h)
-        itp_pil_hr          = in_pil_hr.resize(itp_size_hr, itp_opt_img)                # (pil) scaler 따라서 크기 변경된 HR Image
+        itp_pil_hr          = in_pil_hr.resize(itp_size_hr, itp_opt_img)                # (pil) scaler 따라서 크기 변경된 Original Image
     else:
         itp_pil_hr          = in_pil_hr
     
-    _w, _h                  = kargs['target_size_hr']                                   # (tuple with int) HR output size (W,H)
+    _w, _h                  = kargs['target_size_hr']                                   # (tuple with int) Original output size (W,H)
     tgt_hr_w, tgt_hr_h      = int(_w), int(_h)
     
-    canvas_size_hr          = (                                                         # (tuple with int) HR 캔버스 크기
+    canvas_size_hr          = (                                                         # (tuple with int) Original 캔버스 크기
                                max(itp_hr_w, tgt_hr_w)
                               ,max(itp_hr_h, tgt_hr_h)
                               )
@@ -1933,21 +1933,21 @@ def pil_marginer_v2(**kargs):
                               ,int(min(255, max(0, _b)))
                               )
     
-    canvas_hr_img           = Image.new(in_pil_hr.mode, canvas_size_hr, img_back)       # (pil) empty canvas for HR Image
+    canvas_hr_img           = Image.new(in_pil_hr.mode, canvas_size_hr, img_back)       # (pil) empty canvas for Original Image
     
-    # HR Label
+    # Original Label
     try:
-        in_pil_hr_lab       = kargs['in_pil_hr_label']                                  # (pil) HR Label
+        in_pil_hr_lab       = kargs['in_pil_hr_label']                                  # (pil) Original Label
         if scaler != 1:
             itp_size_hr     = (itp_hr_w, itp_hr_h)
-            itp_pil_hr_lab  = in_pil_hr_lab.resize(itp_size_hr, itp_opt_lab)            # (pil) scaler 따라서 크기 변경된 HR Label
+            itp_pil_hr_lab  = in_pil_hr_lab.resize(itp_size_hr, itp_opt_lab)            # (pil) scaler 따라서 크기 변경된 Original Label
         else:
             itp_pil_hr_lab  = in_pil_hr_lab
         
         _n                  = kargs['lab_background']                                   # (tuple with int) (n)
         lab_back            = (int(min(255, max(0, _n))))
         
-        canvas_hr_lab       = Image.new(in_pil_hr_lab.mode, canvas_size_hr, lab_back)   # (pil) empty canvas for HR Image
+        canvas_hr_lab       = Image.new(in_pil_hr_lab.mode, canvas_size_hr, lab_back)   # (pil) empty canvas for Original Image
         
         return_hr_label     = True
     except:
@@ -1960,7 +1960,7 @@ def pil_marginer_v2(**kargs):
     try:
         in_pil_lr           = kargs['in_pil_lr']                                        # (pil) LR Image
         ori_lr_w, ori_lr_h  = in_pil_lr.size                                            # (int int) original input size (W, H)
-        in_scale_factor     = int(kargs['in_scale_factor'])                             # (int) scale factor between HR and LR
+        in_scale_factor     = int(kargs['in_scale_factor'])                             # (int) scale factor between Original and LR
         
         itp_lr_w, itp_lr_h  = int(ori_lr_w*scaler), int(ori_lr_h*scaler)                # (int int) interpolated input size (W, H)
         
@@ -1970,7 +1970,7 @@ def pil_marginer_v2(**kargs):
             itp_pil_lr      = in_pil_lr
         
         _w, _h              = kargs['target_size_lr']                                   # (tuple with int) LR output size (W,H)
-        tgt_lr_w, tgt_lr_h  = int(_w), int(_h)                                          # -> HR 이미지와 in_scale_factor 배율이 맞도록 설정
+        tgt_lr_w, tgt_lr_h  = int(_w), int(_h)                                          # -> Original 이미지와 in_scale_factor 배율이 맞도록 설정
         
         canvas_size_lr      = (                                                         # (tuple with int) LR 캔버스 크기
                                max(itp_lr_w, tgt_lr_w)
@@ -2124,7 +2124,7 @@ def pil_marginer_v3(**kargs):
                                                         ,is_random          = False
                                                         ,itp_opt_img        = Image.LANCZOS
                                                         ,itp_opt_lab        = Image.NEAREST
-                                                         # 선택 (HR Label 관련)
+                                                         # 선택 (Original Label 관련)
                                                         ,in_pil_hr_label    =
                                                         ,lab_total          =
                                                         ,lab_background     =
@@ -2164,34 +2164,34 @@ def pil_marginer_v3(**kargs):
         itp_opt_lab         = Image.NEAREST
     
     
-    # HR Image
-    in_pil_hr               = kargs['in_pil_hr']                                        # (pil) HR Image
+    # Original Image
+    in_pil_hr               = kargs['in_pil_hr']                                        # (pil) Original Image
     ori_hr_w, ori_hr_h      = in_pil_hr.size                                            # (int int) original input size (W, H)
     
     itp_hr_w, itp_hr_h      = int(ori_hr_w*scaler), int(ori_hr_h*scaler)                # (int int) interpolated input size (W, H)
     
     if scaler != 1:
         itp_size_hr         = (itp_hr_w, itp_hr_h)
-        itp_pil_hr          = in_pil_hr.resize(itp_size_hr, itp_opt_img)                # (pil) scaler 따라서 크기 변경된 HR Image
+        itp_pil_hr          = in_pil_hr.resize(itp_size_hr, itp_opt_img)                # (pil) scaler 따라서 크기 변경된 Original Image
     else:
         itp_pil_hr          = in_pil_hr
     
-    _w, _h                  = kargs['target_size_hr']                                   # (tuple with int) HR output size (W,H)
+    _w, _h                  = kargs['target_size_hr']                                   # (tuple with int) Original output size (W,H)
     tgt_hr_w, tgt_hr_h      = int(_w), int(_h)
     
-    canvas_size_hr          = (max(itp_hr_w, tgt_hr_w), max(itp_hr_h, tgt_hr_h))        # (tuple with int) HR 캔버스 크기
+    canvas_size_hr          = (max(itp_hr_w, tgt_hr_w), max(itp_hr_h, tgt_hr_h))        # (tuple with int) Original 캔버스 크기
     
     _r, _g, _b              = kargs['img_background']                                   # (tuple with int) (R, G, B) Range: 0 ~ 255
     img_back                = (int(min(255, max(0, _r))), int(min(255, max(0, _g))), int(min(255, max(0, _b))))
     
-    canvas_hr_img           = Image.new(in_pil_hr.mode, canvas_size_hr, img_back)       # (pil) empty canvas for HR Image
+    canvas_hr_img           = Image.new(in_pil_hr.mode, canvas_size_hr, img_back)       # (pil) empty canvas for Original Image
     
-    # HR Label
+    # Original Label
     try:
-        in_pil_hr_lab       = kargs['in_pil_hr_label']                                  # (pil) HR Label
+        in_pil_hr_lab       = kargs['in_pil_hr_label']                                  # (pil) Original Label
         if scaler != 1:
             itp_size_hr     = (itp_hr_w, itp_hr_h)
-            itp_pil_hr_lab  = in_pil_hr_lab.resize(itp_size_hr, itp_opt_lab)            # (pil) scaler 따라서 크기 변경된 HR Label
+            itp_pil_hr_lab  = in_pil_hr_lab.resize(itp_size_hr, itp_opt_lab)            # (pil) scaler 따라서 크기 변경된 Original Label
         else:
             itp_pil_hr_lab  = in_pil_hr_lab
         
@@ -2226,7 +2226,7 @@ def pil_marginer_v3(**kargs):
             #_str = name_func + "Label 검증 시행 안함"
             #warnings.warn(_str)
         
-        canvas_hr_lab       = Image.new(in_pil_hr_lab.mode, canvas_size_hr, (lab_back)) # (pil) empty canvas for HR Label
+        canvas_hr_lab       = Image.new(in_pil_hr_lab.mode, canvas_size_hr, (lab_back)) # (pil) empty canvas for Original Label
         
         return_hr_label     = True
         
@@ -2242,7 +2242,7 @@ def pil_marginer_v3(**kargs):
     try:
         in_pil_lr           = kargs['in_pil_lr']                                        # (pil) LR Image
         ori_lr_w, ori_lr_h  = in_pil_lr.size                                            # (int int) original input size (W, H)
-        in_scale_factor     = int(kargs['in_scale_factor'])                             # (int) scale factor between HR and LR
+        in_scale_factor     = int(kargs['in_scale_factor'])                             # (int) scale factor between Original and LR
         
         itp_lr_w, itp_lr_h  = int(ori_lr_w*scaler), int(ori_lr_h*scaler)                # (int int) interpolated input size (W, H)
         
@@ -2252,7 +2252,7 @@ def pil_marginer_v3(**kargs):
             itp_pil_lr      = in_pil_lr
         
         _w, _h              = kargs['target_size_lr']                                   # (tuple with int) LR output size (W,H)
-        tgt_lr_w, tgt_lr_h  = int(_w), int(_h)                                          # -> HR 이미지와 in_scale_factor 배율이 맞도록 설정
+        tgt_lr_w, tgt_lr_h  = int(_w), int(_h)                                          # -> Original 이미지와 in_scale_factor 배율이 맞도록 설정
         
         canvas_size_lr      = (                                                         # (tuple with int) LR 캔버스 크기
                                max(itp_lr_w, tgt_lr_w)
@@ -2314,7 +2314,7 @@ def pil_marginer_v3(**kargs):
         _retry_counter += 1
         # 좌표 계산 
         if return_lr_image:
-            # (HR, LR)
+            # (Original, LR)
             if canvas_size_lr[0] > tgt_lr_w:
                 # width 잘라야 됨
                 _need_cut = True
@@ -2358,7 +2358,7 @@ def pil_marginer_v3(**kargs):
             
             
         else:
-            # (HR)
+            # (Original)
             if canvas_size_hr[0] > tgt_hr_w:
                 # width 잘라야 됨
                 _need_cut = True
@@ -2417,7 +2417,7 @@ def pil_marginer_v3(**kargs):
     
     # 최종 crop 시행
     if return_lr_image:
-        # (HR, LR)
+        # (Original, LR)
         out_pil_lr          = canvas_lr_img.crop((coor_lr_left, coor_lr_up, coor_lr_right, coor_lr_down))
         out_pil_hr          = canvas_hr_img.crop((coor_hr_left, coor_hr_up, coor_hr_right, coor_hr_down))
         
@@ -2427,7 +2427,7 @@ def pil_marginer_v3(**kargs):
         else:
             return out_pil_hr, out_pil_lr
     else:
-        # (HR)
+        # (Original)
         out_pil_hr          = canvas_hr_img.crop((coor_hr_left, coor_hr_up, coor_hr_right, coor_hr_down))
         
         if return_hr_label:

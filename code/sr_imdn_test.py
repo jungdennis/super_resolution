@@ -69,7 +69,7 @@ class Dataset_for_SR(data.Dataset):
         # 이미지 파일 이름 뽑아오기
         _name = self.list_files[idx]
 
-        # HR, LR 이미지 불러오기
+        # Original, LR 이미지 불러오기
         pil_hr = Image.open(self.path_hr + self.path_fold + self.path_image + "/" + _name)
         pil_lr = Image.open(self.path_lr + self.path_fold + self.path_image + "/" + _name)
 
