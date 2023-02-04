@@ -20,9 +20,9 @@ from DLCs.mp_dataloader import DataLoader_multi_worker_FIX
 from DLCs.data_record import RecordBox
 
 # Datapath
-path_hr = "C:/super_resolution/data/image/HR"
-path_lr = "C:/super_resolution/data/image/LR"
-path_sr = "C:/super_resolution/data/image/SR"
+path_hr = "C:/super_resolution/data/image_SYSU/HR"
+path_lr = "C:/super_resolution/data/image_SYSU/LR"
+path_sr = "C:/super_resolution/data/image_SYSU/SR"
 
 path_a = "/A_set"
 path_b = "/B_set"
@@ -31,7 +31,7 @@ path_train_img = "/train/images"
 path_val_img = "/val/images"
 path_test_img = "/test/images"
 
-path_log = "C:/super_resolution/log/log_classification/make_model/RegDB"
+path_log = "C:/super_resolution/log/log_classification/make_model/SYSU"
 
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 
@@ -60,7 +60,7 @@ class Dataset_for_Classification(data.Dataset):
 
         self.label_list = []
         for name in self.list_files :
-            label = name.split(".")[0].split("_")[4]
+            label = name.split(".")[0].split("_")[0]
             if label not in self.label_list :
                 self.label_list.append(label)
 
@@ -70,7 +70,7 @@ class Dataset_for_Classification(data.Dataset):
     def __getitem__(self, idx):
         _name = self.list_files[idx]
         pil_img = Image.open(self.path_img + self.path_fold + self.path_data + "/" + _name)
-        label = _name.split(".")[0].split("_")[4]
+        label = _name.split(".")[0].split("_")[0]
 
         '''
         if label not in self.label_list:
@@ -217,7 +217,7 @@ if __name__ == "__main__":
     '''
 
     # save model
-    torch.save(model, path_log + f"/model/model_classification_RegDB_{time}.pt")
+    torch.save(model, path_log + f"/model/model_classification_SYSU_{time}.pt")
 
     # test
     correct = 0

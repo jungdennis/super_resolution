@@ -42,7 +42,7 @@
 #                                                                                       # cosine 그래프 최소값.
 #                                      )
 #
-# Patch           = (256, 256)          # HR Patch
+# Patch           = (256, 256)          # Original Patch
 # Batch           = 32
 # Random_Filp     = True                # horizontal flips
 # Random_Rotation = [0, 90, 180, 270]

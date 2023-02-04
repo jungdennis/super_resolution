@@ -65,24 +65,22 @@ def calc_EER(threshold, FAR, FRR, for_graph = False) :
             pass
         elif FAR[i] == FRR[i] :
             EER = FAR[i]
-            _x = [threshold[i]]
-            print(_x)
+            th = threshold[i]
             break
         elif FAR[i] < FRR[i] :
             print(f"i : {threshold[i]}, {FAR[i]}, {FRR[i]}")
             print(f"i-1 : {threshold[i-1]}, {FAR[i-1]}, {FRR[i-1]}")
-            if FAR[i-1] != FAR[i] :
-                EER = (FAR[i] * FRR[i-1]) - (FAR[i-1] - FRR[i]) / ((FAR[i] - FRR[i]) - (FAR[i-1] - FRR[i - 1]))
-            elif FAR[i-1] == FAR[i] :
-                EER = FAR[i-1]
-            _x = [threshold[i-1], threshold[i]]
-            print(_x)
+            num = (threshold[i-1]-threshold[i])*(FRR[i-1]-FRR[i])-(threshold[i-1]-threshold[i])*(FAR[i-1]-FAR[i])
+            den_EER = (threshold[i-1]*FAR[i]-threshold[i]*FAR[i-1])*(FRR[i-1]-FRR[i])-(threshold[i-1]*FRR[i]-threshold[i]*FRR[i-1])*(FAR[i-1]-FAR[i])
+            den_th = (threshold[i-1]*FAR[i]-threshold[i]*FAR[i-1])*(threshold[i-1]-threshold[i])-(threshold[i-1]*FRR[i]-threshold[i]*FRR[i-1])*(threshold[i-1]-threshold[i])
+            EER = den_EER / num
+            th = den_th / num
             break
     
     if for_graph :
-        return EER, sum(_x) / len(_x)
+        return EER, th
     else :
-        return EER
+        return EER, th
             
 def graph_FAR_FRR(threshold, FAR, FRR, show_EER = False, xlim = None, ylim = None, log = True, title = "Graph of FAR & FRR") :
     plt.plot(threshold, FAR, color="b")

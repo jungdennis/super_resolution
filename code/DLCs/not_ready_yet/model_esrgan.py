@@ -41,7 +41,7 @@
 #       model_d = Discriminator() #check input image size!
 #       
 #       tensor_g_hypo    = model_g(tensor_x)      #LR input
-#       tensor_d_hypo_hr = model_d(tensor_y)      #HR input
+#       tensor_d_hypo_hr = model_d(tensor_y)      #Original input
 #       tensor_d_hypo_sr = model_d(tensor_g_hypo) #SR input
 #       
 #       tensor_d_answer_real = torch.full([current_batch_size, 1], 1.0, dtype=torch.float, device=torch.device(device))

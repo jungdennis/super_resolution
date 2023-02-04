@@ -10,7 +10,7 @@ save_path = "C:/super_resolution/data/image_SYSU/"
 
 # option 변수 설정
 resize_target = 256
-scale_factor = 4
+scale_factor = 8
 blur_sigma = 3
 noise_sigma = 10
 
@@ -57,7 +57,7 @@ def degrade(fold, set, name) :
 
     img_out = cv2.merge((img_noise_b, img_noise_g, img_noise_r))
 
-    save_path_sr = save_path + "LR/" + fold + "/" + set + "/images/" + name
+    save_path_sr = save_path + "LR_64/" + fold + "/" + set + "/images/" + name
     cv2.imwrite(save_path_sr, img_out)
 
 # 이미지 리스트 불러오기
