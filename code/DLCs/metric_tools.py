@@ -82,7 +82,8 @@ def calc_EER(threshold, FAR, FRR, for_graph = False) :
     else :
         return EER, th
             
-def graph_FAR_FRR(threshold, FAR, FRR, show_EER = False, xlim = None, ylim = None, log = True, title = "Graph of FAR & FRR") :
+def graph_FAR_FRR(threshold, FAR, FRR, show_EER = False,
+                  xlim = None, ylim = None, log = True, title = "Graph of FAR & FRR") :
     plt.plot(threshold, FAR, color="b")
     plt.plot(threshold, FRR, color="g")
     if show_EER :
@@ -94,52 +95,34 @@ def graph_FAR_FRR(threshold, FAR, FRR, show_EER = False, xlim = None, ylim = Non
     plt.ylabel("Rate")
     if log :
         plt.yscale("log")
-    
-    if show_EER :
-        plt.legend(["FAR", "FRR", "EER"])
-    else :
-        plt.legend(["FAR", "FRR"])
-    
+
+    plt.legend(["FAR", "FRR", "EER"])
+
     if xlim is not None :
-        plt.xlim(xlim)  
+        plt.xlim(xlim)
     if ylim is not None :
-        plt.ylim(xlim) 
+        plt.ylim(xlim)
     
     plt.show()
 
-if __name__ == "__main__" :
-    path_log = "C:/super_resolution/log/log_classification/metric_log"
+def graph_ROC(FAR, FRR, EER = None, cross = False, title = "ROC Curve") :
+    plt.plot(FAR, FRR, color="b")
+    if EER is not None :
+        plt.scatter(EER, EER, marker="o", color="r")
+    if cross is True :
+        x=np.linspace(0.0, 1.0, 1000)
+        plt.plot(x, x, linestyle = "--", color = "b")
 
-    metric_save_A = torch.load(path_log + "/metric_HR_A.pt")
-    distance_same_A = metric_save_A['distance_same']
-    distance_diff_A = metric_save_A['distance_diff']
+    plt.title(title)
+    plt.xlabel("False Accept Rate (FAR)")
+    plt.ylabel("False Reject Rate (FRR)")
 
-    metric_save_B = torch.load(path_log + "/metric_HR_B.pt")
-    distance_same_B = metric_save_B['distance_same']
-    distance_diff_B = metric_save_B['distance_diff']
+    plt.xlim([-0.01, 1.0])
+    plt.ylim([1.0, -0.01])
 
-    distance_same = distance_same_A + distance_same_B
-    distance_diff = distance_diff_A + distance_diff_B
+    if EER is not None :
+        plt.legend(["ROC", "EER"])
 
-    distance_same.sort()
-    distance_diff.sort()
-
-    metric_histogram(distance_same, distance_diff, title="Distribution of Distance (Original)", density=True)
-
-    metric_save_A = torch.load(path_log + "/metric_LR_A.pt")
-    distance_same_A = metric_save_A['distance_same']
-    distance_diff_A = metric_save_A['distance_diff']
-
-    metric_save_B = torch.load(path_log + "/metric_LR_B.pt")
-    distance_same_B = metric_save_B['distance_same']
-    distance_diff_B = metric_save_B['distance_diff']
-
-    distance_same = distance_same_A + distance_same_B
-    distance_diff = distance_diff_A + distance_diff_B
-
-    distance_same.sort()
-    distance_diff.sort()
-
-    metric_histogram(distance_same, distance_diff, title="Distribution of Distance (LR)", density=True)
+    plt.show()
     
     

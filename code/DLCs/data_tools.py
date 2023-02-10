@@ -769,7 +769,7 @@ in_pil_x_augm, in_pil_x_lr_augm, in_pil_y_augm, str_used_option = pil_augm_v3(in
 
 #random_in_ticket 계열값 전부 제거 후, random.uniform으로 대체함
 #입력 이미지 크기와 출력 이미지 크기가 다른 경우, resize 기능 추가됨
-# 이제 LR 이미지도 동시에 처리 가능함
+# 이제 LR_4_noise10 이미지도 동시에 처리 가능함
 # 2022-09-01: 0' 90' 135' 회전 시에 0으로 나누는 문제 발생 확인됨
 # 0'    r_m_2 = (b_4 - b_1) / (a_4 - a_1)   -> 발생할 수 없는 각도
 # 90'   l_m_2 = (b_2 - b_1) / (a_2 - a_1)   -> 각도 범위 제한을 통해 제어
@@ -782,7 +782,7 @@ def pil_augm_v3(**kargs):
     input_x_w, input_x_h = in_pil_x.size                                            # 최종 이미지 크기 확인용
     
     try:
-        in_pil_x_lr = kargs['in_pil_x_lr']                                          # (pil) 입력 이미지 x (LR 이미지)
+        in_pil_x_lr = kargs['in_pil_x_lr']                                          # (pil) 입력 이미지 x (LR_4_noise10 이미지)
         input_x_lr_w, input_x_lr_h = in_pil_x_lr.size                               # 최종 이미지 크기 확인용
         # 연산 편의를 위해 크기를 HR과 동일하게 키움 (의도치않은 손실 최소화를 위해 LANCZOS 사용)
         in_pil_x_lr = in_pil_x_lr.resize((int(input_x_w), int(input_x_h)), Image.LANCZOS)
@@ -1424,7 +1424,7 @@ def pil_2_patch_v5(**kargs):
     
     
     
-    #입력 이미지 크기 (나눗셈 관련  misalignment 문제 고려하여 Small size - LR image 기준으로 생성)
+    #입력 이미지 크기 (나눗셈 관련  misalignment 문제 고려하여 Small size - LR_4_noise10 image 기준으로 생성)
     in_w, in_h = in_pil_lr.size
     
     #patch 이미지 크기
@@ -1464,7 +1464,7 @@ def pil_2_patch_v5(**kargs):
     
     #---------------------------- train 모드의 경우
     
-    #입력 이미지 크기 (나눗셈 관련  misalignment 문제 고려하여 Small size - LR image 기준으로 생성)
+    #입력 이미지 크기 (나눗셈 관련  misalignment 문제 고려하여 Small size - LR_4_noise10 image 기준으로 생성)
     in_w, in_h = in_pil_lr.size
     
     #patch 크기 절반
@@ -1488,7 +1488,7 @@ def pil_2_patch_v5(**kargs):
                                      ,int(in_sf * (tmp_center_w + p_half_w))
                                      ,int(in_sf * (tmp_center_h + p_half_h))
                                      )
-                    #LR crop area
+                    #LR_4_noise10 crop area
                     center_coor_lr = (int(tmp_center_w - p_half_w)
                                      ,int(tmp_center_h - p_half_h)
                                      ,int(tmp_center_w + p_half_w)
@@ -1496,9 +1496,9 @@ def pil_2_patch_v5(**kargs):
                                      )
                     
                     #print("Original:", center_coor_hr)
-                    #print("LR:", center_coor_lr)
+                    #print("LR_4_noise10:", center_coor_lr)
                     
-                    #(Original crop area, LR crop area)
+                    #(Original crop area, LR_4_noise10 crop area)
                     list_crop_area.append((center_coor_hr, center_coor_lr))
                     
             tmp_center_w += strides_w
@@ -1600,11 +1600,11 @@ def pil_2_patch_v6(**kargs):
     
     
     
-    #입력 이미지 크기 (나눗셈 관련  misalignment 문제 고려하여 Small size - LR image 기준으로 생성)
+    #입력 이미지 크기 (나눗셈 관련  misalignment 문제 고려하여 Small size - LR_4_noise10 image 기준으로 생성)
     if is_return_img_lr:
         in_w, in_h = in_pil_lr.size
     else:
-        # lr 이미지가 입력되지 않은 경우, Original = LR 로 가정하고 크기 계산 시행
+        # lr 이미지가 입력되지 않은 경우, Original = LR_4_noise10 로 가정하고 크기 계산 시행
         in_sf = 1
         in_w, in_h = in_pil_hr.size
     
@@ -1658,11 +1658,11 @@ def pil_2_patch_v6(**kargs):
         
     #---------------------------- train 모드의 경우
     
-    #입력 이미지 크기 (나눗셈 관련  misalignment 문제 고려하여 Small size - LR image 기준으로 생성)
+    #입력 이미지 크기 (나눗셈 관련  misalignment 문제 고려하여 Small size - LR_4_noise10 image 기준으로 생성)
     if is_return_img_lr:
         in_w, in_h = in_pil_lr.size
     else:
-        # lr 이미지가 입력되지 않은 경우, Original = LR 로 가정하고 크기 계산 시행
+        # lr 이미지가 입력되지 않은 경우, Original = LR_4_noise10 로 가정하고 크기 계산 시행
         in_sf = 1
         in_w, in_h = in_pil_hr.size
     
@@ -1687,7 +1687,7 @@ def pil_2_patch_v6(**kargs):
                                      ,int(in_sf * (tmp_center_w + p_half_w))
                                      ,int(in_sf * (tmp_center_h + p_half_h))
                                      )
-                    #LR crop area
+                    #LR_4_noise10 crop area
                     center_coor_lr = (int(tmp_center_w - p_half_w)
                                      ,int(tmp_center_h - p_half_h)
                                      ,int(tmp_center_w + p_half_w)
@@ -1695,9 +1695,9 @@ def pil_2_patch_v6(**kargs):
                                      )
                     
                     #print("Original:", center_coor_hr)
-                    #print("LR:", center_coor_lr)
+                    #print("LR_4_noise10:", center_coor_lr)
                     
-                    #(Original crop area, LR crop area)
+                    #(Original crop area, LR_4_noise10 crop area)
                     list_crop_area.append((center_coor_hr, center_coor_lr))
                     
             tmp_center_w += strides_w
@@ -1774,7 +1774,7 @@ def pil_marginer_v1(**kargs):
                                                          # 선택 (Original Label)
                                                         ,in_pil_hr_label    = 
                                                         ,lab_background     =
-                                                         # 선택 (LR Image)
+                                                         # 선택 (LR_4_noise10 Image)
                                                         ,in_pil_lr          =
                                                         ,in_scale_factor    = 
                                                         ,target_size_lr     =
@@ -1806,7 +1806,7 @@ def pil_marginer_v1(**kargs):
         lab_background  = None
         return_hr_label = False
     
-    # LR Image
+    # LR_4_noise10 Image
     try:
         in_pil_lr       = kargs['in_pil_lr']            # (pil)
         _lr_w, _lr_h    = in_pil_lr.size
@@ -1879,7 +1879,7 @@ def pil_marginer_v2(**kargs):
                                                          # 선택 (Original Label 관련)
                                                         ,in_pil_hr_label    = 
                                                         ,lab_background     =
-                                                         # 선택 (LR Image 관련)
+                                                         # 선택 (LR_4_noise10 Image 관련)
                                                         ,in_pil_lr          =
                                                         ,in_scale_factor    = 
                                                         ,target_size_lr     =
@@ -1956,28 +1956,28 @@ def pil_marginer_v2(**kargs):
         return_hr_label     = False
     
     
-    # LR Image
+    # LR_4_noise10 Image
     try:
-        in_pil_lr           = kargs['in_pil_lr']                                        # (pil) LR Image
+        in_pil_lr           = kargs['in_pil_lr']                                        # (pil) LR_4_noise10 Image
         ori_lr_w, ori_lr_h  = in_pil_lr.size                                            # (int int) original input size (W, H)
-        in_scale_factor     = int(kargs['in_scale_factor'])                             # (int) scale factor between Original and LR
+        in_scale_factor     = int(kargs['in_scale_factor'])                             # (int) scale factor between Original and LR_4_noise10
         
         itp_lr_w, itp_lr_h  = int(ori_lr_w*scaler), int(ori_lr_h*scaler)                # (int int) interpolated input size (W, H)
         
         if scaler != 1:
-            itp_pil_lr      = in_pil_lr.resize((itp_lr_w, itp_lr_h), itp_opt_img)       # (pil)scaler 따라서 크기 변경된 LR Image
+            itp_pil_lr      = in_pil_lr.resize((itp_lr_w, itp_lr_h), itp_opt_img)       # (pil)scaler 따라서 크기 변경된 LR_4_noise10 Image
         else:
             itp_pil_lr      = in_pil_lr
         
-        _w, _h              = kargs['target_size_lr']                                   # (tuple with int) LR output size (W,H)
+        _w, _h              = kargs['target_size_lr']                                   # (tuple with int) LR_4_noise10 output size (W,H)
         tgt_lr_w, tgt_lr_h  = int(_w), int(_h)                                          # -> Original 이미지와 in_scale_factor 배율이 맞도록 설정
         
-        canvas_size_lr      = (                                                         # (tuple with int) LR 캔버스 크기
+        canvas_size_lr      = (                                                         # (tuple with int) LR_4_noise10 캔버스 크기
                                max(itp_lr_w, tgt_lr_w)
                               ,max(itp_lr_h, tgt_lr_h)
                               )
         
-        canvas_lr_img       = Image.new(in_pil_lr.mode, canvas_size_lr, img_back)       # (pil) empty canvas for LR Image
+        canvas_lr_img       = Image.new(in_pil_lr.mode, canvas_size_lr, img_back)       # (pil) empty canvas for LR_4_noise10 Image
         
         return_lr_image     = True
     except:
@@ -2134,7 +2134,7 @@ def pil_marginer_v3(**kargs):
                                                         ,lab_try_ceiling    = 10
                                                         ,lab_class_min      =
                                                         ,lab_ratio_max      =
-                                                         # 선택 (LR Image 관련)
+                                                         # 선택 (LR_4_noise10 Image 관련)
                                                         ,in_pil_lr          =
                                                         ,in_scale_factor    = 
                                                         ,target_size_lr     =
@@ -2238,28 +2238,28 @@ def pil_marginer_v3(**kargs):
         return_hr_label     = False
         
     
-    # LR Image
+    # LR_4_noise10 Image
     try:
-        in_pil_lr           = kargs['in_pil_lr']                                        # (pil) LR Image
+        in_pil_lr           = kargs['in_pil_lr']                                        # (pil) LR_4_noise10 Image
         ori_lr_w, ori_lr_h  = in_pil_lr.size                                            # (int int) original input size (W, H)
-        in_scale_factor     = int(kargs['in_scale_factor'])                             # (int) scale factor between Original and LR
+        in_scale_factor     = int(kargs['in_scale_factor'])                             # (int) scale factor between Original and LR_4_noise10
         
         itp_lr_w, itp_lr_h  = int(ori_lr_w*scaler), int(ori_lr_h*scaler)                # (int int) interpolated input size (W, H)
         
         if scaler != 1:
-            itp_pil_lr      = in_pil_lr.resize((itp_lr_w, itp_lr_h), itp_opt_img)       # (pil)scaler 따라서 크기 변경된 LR Image
+            itp_pil_lr      = in_pil_lr.resize((itp_lr_w, itp_lr_h), itp_opt_img)       # (pil)scaler 따라서 크기 변경된 LR_4_noise10 Image
         else:
             itp_pil_lr      = in_pil_lr
         
-        _w, _h              = kargs['target_size_lr']                                   # (tuple with int) LR output size (W,H)
+        _w, _h              = kargs['target_size_lr']                                   # (tuple with int) LR_4_noise10 output size (W,H)
         tgt_lr_w, tgt_lr_h  = int(_w), int(_h)                                          # -> Original 이미지와 in_scale_factor 배율이 맞도록 설정
         
-        canvas_size_lr      = (                                                         # (tuple with int) LR 캔버스 크기
+        canvas_size_lr      = (                                                         # (tuple with int) LR_4_noise10 캔버스 크기
                                max(itp_lr_w, tgt_lr_w)
                               ,max(itp_lr_h, tgt_lr_h)
                               )
         
-        canvas_lr_img       = Image.new(in_pil_lr.mode, canvas_size_lr, img_back)       # (pil) empty canvas for LR Image
+        canvas_lr_img       = Image.new(in_pil_lr.mode, canvas_size_lr, img_back)       # (pil) empty canvas for LR_4_noise10 Image
         
         return_lr_image     = True
     except:
@@ -2314,7 +2314,7 @@ def pil_marginer_v3(**kargs):
         _retry_counter += 1
         # 좌표 계산 
         if return_lr_image:
-            # (Original, LR)
+            # (Original, LR_4_noise10)
             if canvas_size_lr[0] > tgt_lr_w:
                 # width 잘라야 됨
                 _need_cut = True
@@ -2417,7 +2417,7 @@ def pil_marginer_v3(**kargs):
     
     # 최종 crop 시행
     if return_lr_image:
-        # (Original, LR)
+        # (Original, LR_4_noise10)
         out_pil_lr          = canvas_lr_img.crop((coor_lr_left, coor_lr_up, coor_lr_right, coor_lr_down))
         out_pil_hr          = canvas_hr_img.crop((coor_hr_left, coor_hr_up, coor_hr_right, coor_hr_down))
         

@@ -21,7 +21,7 @@ from DLCs.data_record import RecordBox
 
 # Datapath
 path_hr = "C:/super_resolution/data/image/HR"
-path_lr = "C:/super_resolution/data/image/LR"
+path_lr = "/data/image/LR_4_noise10"
 path_sr = "C:/super_resolution/data/image/SR"
 
 path_a = "/A_set"
