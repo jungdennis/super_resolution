@@ -2,9 +2,9 @@ import os
 from PIL import Image
 import cv2
 
-path_subset1 = "C:/super_resolution/PersonReID Data/RegDB/subset1/Thermal Images"
-path_subset2 = "C:/super_resolution/PersonReID Data/RegDB/subset2/Thermal Images"
-path_target = "C:/super_resolution/project_use_open/RegDB"
+path_subset1 = "C:/super_resolution/PersonReID Data/Reg/subset1/Thermal Images"
+path_subset2 = "C:/super_resolution/PersonReID Data/Reg/subset2/Thermal Images"
+path_target = "C:/super_resolution/project_use_open/Reg"
 
 # subset 별 이미지 리스트 뽑아오기
 img_list_1 = os.listdir(path_subset1)

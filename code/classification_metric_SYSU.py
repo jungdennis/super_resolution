@@ -11,32 +11,37 @@ from PIL import Image
 import torch
 import torch.utils.data as data
 import torch.nn as nn
-from torch.nn.functional import one_hot
 import torchvision.transforms as transforms
-from transformers import get_cosine_schedule_with_warmup
 
-from DLCs.model_convnext import convnext_small
 from DLCs.mp_dataloader import DataLoader_multi_worker_FIX
-from DLCs.data_record import RecordBox
-from DLCs.metric_tools import metric_histogram, calc_FAR_FRR, calc_EER, graph_FAR_FRR
+from DLCs.metric_tools import metric_histogram, calc_FAR_FRR_v2, calc_EER, graph_FAR_FRR
+
+# Mode Setting
+RESOLUTION = "HR"
+SCALE_FACTOR = 4
+NOISE = 10
+MODEL = "IMDN"
 
 # Datapath
-path_hr = "C:/super_resolution/data/image_SYSU/HR"
-path_lr = "C:/super_resolution/data/image_SYSU/LR"
-path_sr = "C:/super_resolution/data/image_SYSU/SR"
-path_img = path_hr
+if RESOLUTION == "HR" :
+    path_img = "C:/super_resolution/data/image_SYSU/HR"
+    path_log = "C:/super_resolution/log/log_classification/graph_and_log/SYSU/HR/"
+    option_frag = "HR"
+elif RESOLUTION == "LR" :
+    path_img = f"C:/super_resolution/data/image_SYSU/LR_{SCALE_FACTOR}_{NOISE}"
+    path_log = f"C:/super_resolution/log/log_classification/graph_and_log/SYSU/LR_{SCALE_FACTOR}_{NOISE}/"
+    option_frag = f"LR_{SCALE_FACTOR}_{NOISE}"
+elif RESOLUTION == "SR" :
+    path_img = f"C:/super_resolution/data/image_SYSU/SR_{MODEL}"
+    path_log = f"C:/super_resolution/log/log_classification/graph_and_log/SYSU/SR_{MODEL}/"
+    option_frag = f"SR_{MODEL}"
 
 path_a = "/A_set"
 path_b = "/B_set"
-path_fold = path_a
 
 path_train_img = "/train/images"
 path_val_img = "/val/images"
 path_test_img = "/test/images"
-
-path_log = "C:/super_resolution/log/log_classification/metric_log"
-path_metric = path_log + "/metric_HR_A_SYSU.pt"
-# path_rate = path_log + "/FAR_FRR_LR_B.pt"
 
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 
@@ -45,8 +50,6 @@ SEED = 485
 random.seed(SEED)
 np.random.seed(SEED)
 torch.manual_seed(SEED)
-
-
 
 # Dataset settings
 class Dataset_for_Classification(data.Dataset):
@@ -93,6 +96,7 @@ class Dataset_for_Classification(data.Dataset):
         elif self.mode == "all" :
             for label in list(self.label_list):
                 _list = self.label_frame[label]
+                print(_list)
                 for i in range(1, len(_list)) :
                     img_frame = _list[i]
                     name_frag = label + "_" + img_frame
@@ -118,41 +122,8 @@ class Dataset_for_Classification(data.Dataset):
         return self.transform_raw(pil_img), label_tensor
 
 if __name__ == "__main__":
-    # train, valid, test dataset 설정
-    dataset_center = Dataset_for_Classification(path_img=path_img,
-                                                path_fold=path_fold,
-                                                path_data=path_test_img,
-                                                mode="center")
-    dataset_image = Dataset_for_Classification(path_img=path_img,
-                                               path_fold=path_fold,
-                                               path_data=path_test_img)
-    num_img = len(dataset_image)
-    print(f"dataset_center : {len(dataset_center.img_list)}, dataset_image : {len(dataset_image.img_list)}")
-
-
-    # dataset을 dataloader에 할당
-    # 원래는 torch의 dataloader를 부르는게 맞지만
-    # 멀티코어 활용을 위해 DataLoader_multi_worker_FIX를 import 하여 사용
-    BATCH_SIZE = 1
-
-    dataloader_center = DataLoader_multi_worker_FIX(dataset=dataset_center,
-                                                    batch_size=1,
-                                                    shuffle=True,
-                                                    num_workers=2,
-                                                    prefetch_factor=2,
-                                                    drop_last=True)
-
-    dataloader_image = DataLoader_multi_worker_FIX(dataset=dataset_image,
-                                                   batch_size=1,
-                                                   shuffle=True,
-                                                   num_workers=2,
-                                                   prefetch_factor=2,
-                                                   drop_last=True)
-
     # 학습 설정
     # device, scaler, model, loss, epoch, batch_size, lr, optimizer, scheduler
-    EPOCH = 1
-    num_classes = len(list(dataset_center.label_frame.keys()))
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     amp_scaler = torch.cuda.amp.GradScaler(enabled=True)
@@ -163,18 +134,47 @@ if __name__ == "__main__":
     model.head = nn.Identity()
     model.to(device)
 
+    '''
+    Fold A
+    '''
+    print("Start Measure Metric : Fold A")
+    # train, valid, test dataset 설정
+    dataset_center_a = Dataset_for_Classification(path_img=path_img,
+                                                  path_fold=path_a,
+                                                  path_data=path_test_img,
+                                                  mode="center")
+    dataset_image_a = Dataset_for_Classification(path_img=path_img,
+                                                 path_fold=path_a,
+                                                 path_data=path_test_img)
+
+    num_img_a = len(dataset_image_a)
+    print(f"Fold A : dataset_center : {len(dataset_center_a.img_list)}, dataset_image : {len(dataset_image_a.img_list)}")
+
+
+    # dataset을 dataloader에 할당
+    # 원래는 torch의 dataloader를 부르는게 맞지만
+    # 멀티코어 활용을 위해 DataLoader_multi_worker_FIX를 import 하여 사용
+    dataloader_center_a = DataLoader_multi_worker_FIX(dataset=dataset_center_a,
+                                                    batch_size=1,
+                                                    shuffle=True,
+                                                    num_workers=2,
+                                                    prefetch_factor=2,
+                                                    drop_last=True)
+
+    dataloader_image_a = DataLoader_multi_worker_FIX(dataset=dataset_image_a,
+                                                   batch_size=1,
+                                                   shuffle=True,
+                                                   num_workers=2,
+                                                   prefetch_factor=2,
+                                                   drop_last=True)
+
     # train, valid, test
-    size = len(dataloader_center.dataset)
-
-    for i_epoch_raw in range(EPOCH):
-        i_epoch = i_epoch_raw + 1
-
-    center_list = []
-    distance_same = []
-    distance_diff = []
+    center_list_A = []
+    distance_same_A = []
+    distance_diff_A = []
 
     # metric 측정을 위한 center 추출
-    for i_dataloader in dataloader_center:
+    for i_dataloader in dataloader_center_a:
         data, label = i_dataloader
         data = data.to(device)
         label = label.to(device)
@@ -182,14 +182,14 @@ if __name__ == "__main__":
         with torch.no_grad():
             label = label.item()
             center = model(data)
-            center_list.append([label, center])
+            center_list_A.append([label, center])
 
-    print(len(center_list))
+    print(len(center_list_A))
 
     # metric 측정을 위한 feature 추출
     cnt_feature = 1
     cnt_pass = 0
-    for i_dataloader in dataloader_image:
+    for i_dataloader in dataloader_image_a:
         data, label = i_dataloader
         data = data.to(device)
         label = label.to(device)
@@ -197,18 +197,123 @@ if __name__ == "__main__":
         with torch.no_grad():
             label = label.item()
             output = model(data)
-            print(f"Calculating Feature and Distance... [{cnt_feature}/{num_img}]")
+            print(f"Calculating Feature and Distance... [{cnt_feature}/{num_img_a}]")
             cnt_feature += 1
 
-            for center_label, center in center_list:
+            for center_label, center in center_list_A:
                 distance = (output - center).pow(2).sum().sqrt().item()
                 if center_label == label:
-                    distance_same.append(distance)
+                    distance_same_A.append(distance)
                 else:
-                    distance_diff.append(distance)
+                    distance_diff_A.append(distance)
+
+    distance_same_A.sort()
+    distance_diff_A.sort()
+
+    try :
+        torch.save({'distance_same' : distance_same_A,
+                    'distance_diff' : distance_diff_A}, path_log + f"metric_SYSU_A_{option_frag}.pt")
+    except :
+        os.makedirs(path_log)
+        torch.save({'distance_same': distance_same_A,
+                    'distance_diff': distance_diff_A}, path_log + f"metric_SYSU_A_{option_frag}.pt")
+
+    '''
+    Fold B
+    '''
+    print("Start Measure Metric : Fold B")
+    dataset_center_b = Dataset_for_Classification(path_img=path_img,
+                                                  path_fold=path_b,
+                                                  path_data=path_test_img,
+                                                  mode="center")
+    dataset_image_b = Dataset_for_Classification(path_img=path_img,
+                                                 path_fold=path_b,
+                                                 path_data=path_test_img)
+
+    num_img_b = len(dataset_image_b)
+    print(f"Fold B : dataset_center : {len(dataset_center_b.img_list)}, dataset_image : {len(dataset_image_b.img_list)}")
+
+    dataloader_center_b = DataLoader_multi_worker_FIX(dataset=dataset_center_b,
+                                                    batch_size=1,
+                                                    shuffle=True,
+                                                    num_workers=2,
+                                                    prefetch_factor=2,
+                                                    drop_last=True)
+
+    dataloader_image_b = DataLoader_multi_worker_FIX(dataset=dataset_image_b,
+                                                   batch_size=1,
+                                                   shuffle=True,
+                                                   num_workers=2,
+                                                   prefetch_factor=2,
+                                                   drop_last=True)
+
+    center_list_B = []
+    distance_same_B = []
+    distance_diff_B = []
+
+    # metric 측정을 위한 center 추출
+    for i_dataloader in dataloader_center_b :
+        data, label = i_dataloader
+        data = data.to(device)
+        label = label.to(device)
+
+        with torch.no_grad():
+            label = label.item()
+            center = model(data)
+            center_list_B.append([label, center])
+
+    print(len(center_list_B))
+
+    # metric 측정을 위한 feature 추출
+    cnt_feature = 1
+    cnt_pass = 0
+    for i_dataloader in dataloader_image_b :
+        data, label = i_dataloader
+        data = data.to(device)
+        label = label.to(device)
+
+        with torch.no_grad():
+            label = label.item()
+            output = model(data)
+            print(f"Calculating Feature and Distance... [{cnt_feature}/{num_img_b}]")
+            cnt_feature += 1
+
+            for center_label, center in center_list_B :
+                distance = (output - center).pow(2).sum().sqrt().item()
+                if center_label == label:
+                    distance_same_B.append(distance)
+                else:
+                    distance_diff_B.append(distance)
+
+    distance_same_B.sort()
+    distance_diff_B.sort()
+
+    try :
+        torch.save({'distance_same' : distance_same_B,
+                    'distance_diff' : distance_diff_B}, path_log + f"metric_SYSU_B_{option_frag}.pt")
+    except :
+        os.makedirs(path_log)
+        torch.save({'distance_same': distance_same_B,
+                    'distance_diff': distance_diff_B}, path_log + f"metric_SYSU_B_{option_frag}.pt")
+
+    # FAR, FRR, EER 측정
+    print("Start Calulating FAR/FRR/EER")
+    distance_same = distance_same_A + distance_same_B
+    distance_diff = distance_diff_A + distance_diff_B
 
     distance_same.sort()
     distance_diff.sort()
 
-    torch.save({'distance_same' : distance_same,
-                'distance_diff' : distance_diff}, path_metric)
+    metric_histogram(distance_same, distance_diff, title=f"Distribution of Distance (SYSU_{option_frag})", density=True,
+                     save_path = path_log + f"hist_SYSU_{option_frag}.png")
+    # print(len(distance_same), len(distance_diff))
+
+    distance_same = np.array(distance_same)
+    distance_diff = np.array(distance_diff)
+
+    threshold, FAR, FRR = calc_FAR_FRR_v2(distance_same, distance_diff, save = path_log + f"FAR_FRR_SYSU_{option_frag}.pt")
+    EER, th = calc_EER(threshold, FAR, FRR, save = path_log + f"EER_SYSU_{option_frag}.pt")
+
+    graph_FAR_FRR(threshold, FAR, FRR, show_EER = True, title = f"Graph of FAR & FRR (SYSU_{option_frag})",
+                  save_path = path_log + f"graph_EER_SYSU_{option_frag}.png")
+    # graph_FAR_FRR(threshold, FAR, FRR, show_EER = True, log=True, title="Graph of FAR & FRR (HR, SYSU)")

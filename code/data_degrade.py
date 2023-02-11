@@ -4,15 +4,22 @@ import numpy as np
 import csv
 import datetime
 
-main_path = "C:/super_resolution/code/"
-load_path = "C:/super_resolution/data/data_split_open/RegDB/"
-save_path = "C:/super_resolution/data/image/"
+path_mode = "SYSU"
+
+if path_mode == "Reg" :
+    main_path = "C:/super_resolution/code/"
+    load_path = "C:/super_resolution/data/data_split_open/RegDB/"
+    save_path = "C:/super_resolution/data/image/"
+elif path_mode == "SYSU" :
+    main_path = "C:/super_resolution/code/"
+    load_path = "C:/super_resolution/data/SYSU_split/"
+    save_path = "C:/super_resolution/data/image_SYSU/"
 
 # option 변수 설정
 resize_target = 256
-scale_factor = 8
+scale_factor = 4
 blur_sigma = 3
-noise_sigma = 30
+noise_sigma = 10
 
 def degrade(fold, set, name) :
     # 원본 이미지 불러오기
@@ -26,11 +33,14 @@ def degrade(fold, set, name) :
     save_path_hr = save_path + "HR/" + fold + "/" + set + "/images/" + name
     cv2.imwrite(save_path_hr, img_resize)
 
-    # 4배율로 줄여 LR 만들기
+    # SYSU Database 오류 수정용
+    img_resize = cv2.imread(save_path + "HR/" + fold + "/" + set + "/images/" + name)
+
+    # LR 만들기
     '''
     Low Resolution 이미지 만들기
     1. Gaussian Blur를 적용
-    2. 4배율로 Downsize
+    2. Downsize
     3. Noise를 첨가
     '''
 
@@ -57,7 +67,7 @@ def degrade(fold, set, name) :
 
     img_out = cv2.merge((img_noise_b, img_noise_g, img_noise_r))
 
-    save_path_sr = save_path + "LR_8_noise30/" + fold + "/" + set + "/images/" + name
+    save_path_sr = save_path + f"LR_{scale_factor}_noise{noise_sigma}/" + fold + "/" + set + "/images/" + name
     cv2.imwrite(save_path_sr, img_out)
 
 # 이미지 리스트 불러오기
@@ -73,7 +83,7 @@ for fold in fold_list :
         list_path = load_path + fold + "/" + set + "/images/"
         fold_dict[set] = os.listdir(list_path)
 
-# Original, LR_4_noise10 이미지 생성 및 저장
+# Original, LR 이미지 생성 및 저장
 for fold in fold_list :
     for set in set_list :
         img_list = img_dict[fold][set]
