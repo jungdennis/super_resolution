@@ -16,12 +16,24 @@ import torchvision.transforms as transforms
 from DLCs.mp_dataloader import DataLoader_multi_worker_FIX
 from DLCs.metric_tools import metric_histogram, calc_FAR_FRR_v2, calc_EER, graph_FAR_FRR
 
+import argparse
+
+parser = argparse.ArgumentParser(description = "RegDB의 Distance와 FAR, FRR, EER을 측정합니다.")
+
+parser.add_argument('--resolution', required = True, choices = ["HR", "LR", "SR"], help = "이미지의 Resolution 선택 (HR, LR, SR)")
+parser.add_argument('--scale', required = False, type = int, help = "LR 이미지의 Scale Factor 입력")
+parser.add_argument('--noise', required = False, type = int, help = "LR 이미지 noise의 sigma 값 입력")
+parser.add_argument('--model', required = False, help = "SR 이미지의 알고리즘 이름 입력")
+parser.add_argument("--mode", required = False,choices = ["all", "pick_1", "pick_2"],  help = "RegDB의 이미지 선택 모드 입력")
+
+args = parser.parse_args()
+
 # Mode Setting
-RESOLUTION = "LR"
-SCALE_FACTOR = 8
-NOISE = 10
-MODEL = "IMDN"
-MEASURE_MODE = "all"    # all or pick_1 or pick_2
+RESOLUTION = args.resolution
+SCALE_FACTOR = args.scale
+NOISE = args.noise
+MODEL = args.model
+MEASURE_MODE = args.mode        # all or pick_1 or pick_2
 
 # Datapath
 if RESOLUTION == "HR" :
@@ -315,11 +327,11 @@ if __name__ == "__main__":
 
     try:
         torch.save({'distance_same': distance_same_B,
-                    'distance_diff': distance_diff_B}, path_log + f"metric_SYSU_B_{option_frag}.pt")
+                    'distance_diff': distance_diff_B}, path_log + f"metric_Reg_B_{option_frag}.pt")
     except:
         os.makedirs(path_log)
         torch.save({'distance_same': distance_same_B,
-                    'distance_diff': distance_diff_B}, path_log + f"metric_SYSU_B_{option_frag}.pt")
+                    'distance_diff': distance_diff_B}, path_log + f"metric_Reg_B_{option_frag}.pt")
 
     # FAR, FRR, EER 측정
     print("Start Calulating FAR/FRR/EER")

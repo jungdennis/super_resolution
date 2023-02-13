@@ -16,11 +16,22 @@ import torchvision.transforms as transforms
 from DLCs.mp_dataloader import DataLoader_multi_worker_FIX
 from DLCs.metric_tools import metric_histogram, calc_FAR_FRR_v2, calc_EER, graph_FAR_FRR
 
+import argparse
+
+parser = argparse.ArgumentParser(description = "SYSU Database의 Distance와 FAR, FRR, EER을 측정합니다.")
+
+parser.add_argument('--resolution', required = True, choices = ["HR", "LR", "SR"], help = "이미지의 Resolution 선택 (HR, LR, SR)")
+parser.add_argument('--scale', required = False, type = int, help = "LR 이미지의 Scale Factor 입력")
+parser.add_argument('--noise', required = False, type = int, help = "LR 이미지 noise의 sigma 값 입력")
+parser.add_argument('--model', required = False, help = "SR 이미지의 알고리즘 이름 입력")
+
+args = parser.parse_args()
+
 # Mode Setting
-RESOLUTION = "HR"
-SCALE_FACTOR = 4
-NOISE = 10
-MODEL = "IMDN"
+RESOLUTION = args.resolution
+SCALE_FACTOR = args.scale
+NOISE = args.noise
+MODEL = args.model
 
 # Datapath
 if RESOLUTION == "HR" :
@@ -28,7 +39,7 @@ if RESOLUTION == "HR" :
     path_log = "C:/super_resolution/log/log_classification/graph_and_log/SYSU/HR/"
     option_frag = "HR"
 elif RESOLUTION == "LR" :
-    path_img = f"C:/super_resolution/data/image_SYSU/LR_{SCALE_FACTOR}_{NOISE}"
+    path_img = f"C:/super_resolution/data/image_SYSU/LR_{SCALE_FACTOR}_noise{NOISE}"
     path_log = f"C:/super_resolution/log/log_classification/graph_and_log/SYSU/LR_{SCALE_FACTOR}_{NOISE}/"
     option_frag = f"LR_{SCALE_FACTOR}_{NOISE}"
 elif RESOLUTION == "SR" :
@@ -96,7 +107,6 @@ class Dataset_for_Classification(data.Dataset):
         elif self.mode == "all" :
             for label in list(self.label_list):
                 _list = self.label_frame[label]
-                print(_list)
                 for i in range(1, len(_list)) :
                     img_frame = _list[i]
                     name_frag = label + "_" + img_frame
@@ -106,20 +116,21 @@ class Dataset_for_Classification(data.Dataset):
 
         self.img_list = set(self.img_list)
         self.img_list = list(self.img_list)
-        print(len(self.img_list))
 
 
     def __len__(self):
         return len(self.img_list)
 
     def __getitem__(self, idx):
-        _name = self.list_files[idx]
+        _name = self.img_list[idx]
         pil_img = Image.open(self.path_img + self.path_fold + self.path_data + "/" + _name)
         label = int(_name.split(".")[0].split("_")[0])
+        frame = int(_name.split(".")[0].split("_")[1])
 
         label_tensor = torch.Tensor([label]).to(torch.int64)
+        frame_tensor = torch.Tensor([frame]).to(torch.int64)
 
-        return self.transform_raw(pil_img), label_tensor
+        return self.transform_raw(pil_img), label_tensor, frame_tensor
 
 if __name__ == "__main__":
     # 학습 설정
@@ -150,7 +161,6 @@ if __name__ == "__main__":
     num_img_a = len(dataset_image_a)
     print(f"Fold A : dataset_center : {len(dataset_center_a.img_list)}, dataset_image : {len(dataset_image_a.img_list)}")
 
-
     # dataset을 dataloader에 할당
     # 원래는 torch의 dataloader를 부르는게 맞지만
     # 멀티코어 활용을 위해 DataLoader_multi_worker_FIX를 import 하여 사용
@@ -175,35 +185,39 @@ if __name__ == "__main__":
 
     # metric 측정을 위한 center 추출
     for i_dataloader in dataloader_center_a:
-        data, label = i_dataloader
+        data, label, frame = i_dataloader
         data = data.to(device)
         label = label.to(device)
+        frame = frame.to(device)
 
         with torch.no_grad():
             label = label.item()
+            frame = frame.item()
             center = model(data)
-            center_list_A.append([label, center])
-
-    print(len(center_list_A))
+            center_list_A.append([label, frame, center])
 
     # metric 측정을 위한 feature 추출
     cnt_feature = 1
     cnt_pass = 0
     for i_dataloader in dataloader_image_a:
-        data, label = i_dataloader
+        data, label, frame = i_dataloader
         data = data.to(device)
         label = label.to(device)
+        frame = frame.to(device)
 
         with torch.no_grad():
             label = label.item()
+            frame = frame.item()
             output = model(data)
             print(f"Calculating Feature and Distance... [{cnt_feature}/{num_img_a}]")
             cnt_feature += 1
 
-            for center_label, center in center_list_A:
+            for center_label, center_frame, center in center_list_A:
                 distance = (output - center).pow(2).sum().sqrt().item()
                 if center_label == label:
                     distance_same_A.append(distance)
+                    if distance == 0 :
+                        print(f"Zero Distance Appeared! - center : {center_label}_{center_frame} , target : {label}_{frame}")
                 else:
                     distance_diff_A.append(distance)
 
@@ -253,14 +267,16 @@ if __name__ == "__main__":
 
     # metric 측정을 위한 center 추출
     for i_dataloader in dataloader_center_b :
-        data, label = i_dataloader
+        data, label, frame = i_dataloader
         data = data.to(device)
         label = label.to(device)
+        frame = frame.to(device)
 
         with torch.no_grad():
             label = label.item()
+            frame = frame.item()
             center = model(data)
-            center_list_B.append([label, center])
+            center_list_B.append([label, frame, center])
 
     print(len(center_list_B))
 
@@ -268,20 +284,24 @@ if __name__ == "__main__":
     cnt_feature = 1
     cnt_pass = 0
     for i_dataloader in dataloader_image_b :
-        data, label = i_dataloader
+        data, label, frame = i_dataloader
         data = data.to(device)
         label = label.to(device)
+        frame = frame.to(device)
 
         with torch.no_grad():
             label = label.item()
+            frame = frame.item()
             output = model(data)
             print(f"Calculating Feature and Distance... [{cnt_feature}/{num_img_b}]")
             cnt_feature += 1
 
-            for center_label, center in center_list_B :
+            for center_label, center_frame, center in center_list_B :
                 distance = (output - center).pow(2).sum().sqrt().item()
                 if center_label == label:
                     distance_same_B.append(distance)
+                    if distance == 0 :
+                        print(f"Zero Distance Appeared! : {center_label}_{center_frame} & {label}_{frame}")
                 else:
                     distance_diff_B.append(distance)
 

@@ -5,13 +5,26 @@ import random
 import torch
 from DLCs.metric_tools import metric_histogram, calc_FAR_FRR_v2, calc_EER, graph_FAR_FRR, graph_ROC
 
+import argparse
+
+parser = argparse.ArgumentParser(description = "거리 측정 파일이 있을 경우에 FAR, FRR, EER을 측정합니다.")
+
+parser.add_argument('--database', required = True, choices = ["Reg", "SYSU"], help = "사용할 데이터베이스 입력 (Reg, SYSU)")
+parser.add_argument('--resolution', required = True, choices = ["HR", "LR", "SR"], help = "이미지의 Resolution 선택 (HR, LR, SR)")
+parser.add_argument('--scale', required = False, type = int, help = "LR 이미지의 Scale Factor 입력")
+parser.add_argument('--noise', required = False, type = int, help = "LR 이미지 noise의 sigma 값 입력")
+parser.add_argument('--model', required = False, help = "SR 이미지의 알고리즘 이름 입력")
+parser.add_argument("--mode", required = False,choices = ["all", "pick_1", "pick_2"],  help = "RegDB의 이미지 선택 모드 입력")
+
+args = parser.parse_args()
+
 # Mode Setting
-DATABASE = "Reg"        # Reg or SYSU
-RESOLUTION = "HR"
-SCALE_FACTOR = 4
-NOISE = 10
-MODEL = "IMDN"
-MEASURE_MODE = "all"    # all or pick_1 or pick_2
+DATABASE = args.database        # Reg or SYSU
+RESOLUTION = args.resolution
+SCALE_FACTOR = args.scale
+NOISE = args.noise
+MODEL = args.model
+MEASURE_MODE = args.mode        # all or pick_1 or pick_2
 
 # Datapath
 if RESOLUTION == "HR" :
@@ -42,11 +55,11 @@ np.random.seed(SEED)
 torch.manual_seed(SEED)
 
 if __name__ == "__main__":
-    metric_save_A = torch.load(path_log + f"/metric_{DATABASE}_A_{option_frag}.pt")
+    metric_save_A = torch.load(path_log + f"metric_{DATABASE}_A_{option_frag}.pt")
     distance_same_A = metric_save_A['distance_same']
     distance_diff_A = metric_save_A['distance_diff']
 
-    metric_save_B = torch.load(path_log + f"/metric_{DATABASE}_B_{option_frag}.pt")
+    metric_save_B = torch.load(path_log + f"metric_{DATABASE}_B_{option_frag}.pt")
     distance_same_B = metric_save_B['distance_same']
     distance_diff_B = metric_save_B['distance_diff']
 
@@ -58,10 +71,13 @@ if __name__ == "__main__":
 
     metric_histogram(distance_same, distance_diff, title=f"Distribution of Distance ({DATABASE}_{option_frag})", density=True,
                      save_path = path_log + f"hist_{DATABASE}_{option_frag}.png")
-    # print(len(distance_same), len(distance_diff))
+    # print(min(distance_same), max(distance_same))
+    # print(min(distance_diff), max(distance_diff))
 
     distance_same = np.array(distance_same)
     distance_diff = np.array(distance_diff)
+
+    print(len(distance_same[distance_same == 0.0]))
 
     threshold, FAR, FRR = calc_FAR_FRR_v2(distance_same, distance_diff, save = path_log + f"FAR_FRR_{DATABASE}_{option_frag}.pt")
     EER, th = calc_EER(threshold, FAR, FRR, save = path_log + f"EER_{DATABASE}_{option_frag}.pt")
