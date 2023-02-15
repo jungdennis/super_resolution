@@ -47,15 +47,15 @@ MEASURE_MODE = args.mode        # all or pick_1 or pick_2
 # Datapath
 if RESOLUTION == "HR" :
     path_img = "C:/super_resolution/data/image/HR"
-    path_log = "C:/super_resolution/log/log_classification/graph_and_log/Reg/HR/"
+    path_log = "C:/super_resolution/log/log_classification/graph_and_log/Reg_test/HR/"
     option_frag = f"HR_{MEASURE_MODE}"
 elif RESOLUTION == "LR" :
     path_img = f"C:/super_resolution/data/image/LR_{SCALE_FACTOR}_noise{NOISE}"
-    path_log = f"C:/super_resolution/log/log_classification/graph_and_log/Reg/LR_{SCALE_FACTOR}_{NOISE}/"
+    path_log = f"C:/super_resolution/log/log_classification/graph_and_log/Reg_test/LR_{SCALE_FACTOR}_{NOISE}/"
     option_frag = f"LR_{SCALE_FACTOR}_{NOISE}_{MEASURE_MODE}"
 elif RESOLUTION == "SR" :
     path_img = f"C:/super_resolution/data/image/SR_{MODEL}"
-    path_log = f"C:/super_resolution/log/log_classification/graph_and_log/Reg/SR_{MODEL}/"
+    path_log = f"C:/super_resolution/log/log_classification/graph_and_log/Reg_test/SR_{MODEL}/"
     option_frag = f"SR_{MODEL}_{MEASURE_MODE}"
 
 path_a = "/A_set"
@@ -170,12 +170,6 @@ if __name__ == "__main__":
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     amp_scaler = torch.cuda.amp.GradScaler(enabled=True)
 
-    model_path = "/log/log_classification/make_model/RegDB/convnext/model"
-    latest_model = os.listdir(model_path)[-1]
-    model = torch.load(model_path + "/" + latest_model)
-    model.head = nn.Identity()
-    model.to(device)
-
     loss_mse = nn.MSELoss(reduction='sum')
     loss_mse.to(device)
 
@@ -230,8 +224,7 @@ if __name__ == "__main__":
 
         with torch.no_grad():
             label = label.item()
-            center = model(data)
-            center_list_A.append([label, center])
+            center_list_A.append([label, data])
 
     print(len(center_list_A))
 
@@ -245,12 +238,11 @@ if __name__ == "__main__":
 
         with torch.no_grad():
             label = label.item()
-            output = model(data)
             print(f"Calculating Feature and Distance... [{cnt_feature}/{num_img_a}]")
             cnt_feature += 1
 
             for center_label, center in center_list_A:
-                distance = (output - center).pow(2).sum().sqrt().item()
+                distance = (data - center).pow(2).sum().sqrt().item()
                 if center_label == label:
                     distance_same_A.append(distance)
                 else:
@@ -309,8 +301,7 @@ if __name__ == "__main__":
 
         with torch.no_grad():
             label = label.item()
-            center = model(data)
-            center_list_B.append([label, center])
+            center_list_B.append([label, data])
 
     print(len(center_list_B))
 
@@ -324,12 +315,11 @@ if __name__ == "__main__":
 
         with torch.no_grad():
             label = label.item()
-            output = model(data)
             print(f"Calculating Feature and Distance... [{cnt_feature}/{num_img_b}]")
             cnt_feature += 1
 
             for center_label, center in center_list_B:
-                distance = (output - center).pow(2).sum().sqrt().item()
+                distance = (data - center).pow(2).sum().sqrt().item()
                 if center_label == label:
                     distance_same_B.append(distance)
                 else:
@@ -353,18 +343,11 @@ if __name__ == "__main__":
 
     distance_same.sort()
     distance_diff.sort()
+    print(max(distance_diff))
 
     metric_histogram(distance_same, distance_diff, title=f"Distribution of Distance (Reg_{option_frag})", density=True,
-                     save_path = path_log + f"hist_Reg_{option_frag}_2.png")
-    # print(len(distance_same), len(distance_diff))
-
-    distance_same = np.array(distance_same)
-    distance_diff = np.array(distance_diff)
-
-    threshold, FAR, FRR = calc_FAR_FRR_v2(distance_same, distance_diff, save = path_log + f"FAR_FRR_Reg_{option_frag}.pt")
-    EER, th = calc_EER(threshold, FAR, FRR, save = path_log + f"EER_Reg_{option_frag}.pt")
-
-    graph_FAR_FRR(threshold, FAR, FRR, show_EER = True, title = f"Graph of FAR & FRR (Reg_{option_frag})",
-                  save_path = path_log + f"graph_EER_Reg_{option_frag}.png")
-    graph_FAR_FRR(threshold, FAR, FRR, show_EER = True, log=True, title = f"Graph of FAR & FRR (Reg_{option_frag})",
-                  save_path = path_log + f"graph_EER_Reg_{option_frag}_log.png")
+                     save_path = path_log + f"hist_Reg_{option_frag}.png")
+    metric_histogram(distance_same_A, distance_diff_A, title=f"Distribution of Distance (Reg_{option_frag}_A)", density=True,
+                     save_path = path_log + f"hist_Reg_{option_frag}_A.png")
+    metric_histogram(distance_same_B, distance_diff_B, title=f"Distribution of Distance (Reg_{option_frag}_B)", density=True,
+                     save_path = path_log + f"hist_Reg_{option_frag}_B.png")

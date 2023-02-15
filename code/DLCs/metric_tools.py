@@ -20,7 +20,10 @@ def metric_histogram(list_correct, list_wrong, xlim=None, density=False, title="
     plt.legend(["genuine", "imposter"])
     if xlim is not None:
         plt.xlim(xlim)
-    plt.ylim([0, 0.2])
+    else :
+        plt.xlim([0, 250])
+        # plt.xlim([min(list_correct), max(list_wrong)])
+    plt.ylim([0, 0.05])
 
     if save_path is not None :
         plt.savefig(save_path)

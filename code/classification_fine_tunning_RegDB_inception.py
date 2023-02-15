@@ -14,6 +14,7 @@ import torch.nn as nn
 from torch.nn.functional import one_hot
 import torchvision.transforms as transforms
 from transformers import get_cosine_schedule_with_warmup
+import timm
 
 from DLCs.model_convnext import convnext_small
 from DLCs.mp_dataloader import DataLoader_multi_worker_FIX
@@ -31,7 +32,7 @@ path_train_img = "/train/images"
 path_val_img = "/val/images"
 path_test_img = "/test/images"
 
-path_log = "C:/super_resolution/log/log_classification/make_model/RegDB"
+path_log = "C:/super_resolution/log/log_classification/make_model/RegDB/inception"
 
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 
@@ -55,7 +56,7 @@ class Dataset_for_Classification(data.Dataset):
 
         # mixup, cutmix는 좀 더 찾아보고 넣자...
         # 일단은 없이 할 수 있는 한 augmentation 진행함
-        self.transform_raw = transforms.Compose([transforms.Resize((224, 224)),
+        self.transform_raw = transforms.Compose([transforms.Resize((299, 299)),
                                                  transforms.ToTensor()])
 
         self.label_list = []
@@ -99,7 +100,7 @@ if __name__ == "__main__":
     # dataset을 dataloader에 할당
     # 원래는 torch의 dataloader를 부르는게 맞지만
     # 멀티코어 활용을 위해 DataLoader_multi_worker_FIX를 import 하여 사용
-    BATCH_SIZE = 16
+    BATCH_SIZE = 8
 
     dataloader_train = DataLoader_multi_worker_FIX(dataset=dataset_train,
                                                    batch_size=BATCH_SIZE,
@@ -129,24 +130,25 @@ if __name__ == "__main__":
 
     # 학습 설정
     # device, scaler, model, loss, epoch, batch_size, lr, optimizer, scheduler
-    LR = 5e-5
+    LR = 0.045
     EPOCH = 30
     num_classes = len(dataset_train.label_list)
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     amp_scaler = torch.cuda.amp.GradScaler(enabled=True)
 
-    model = convnext_small(pretrained = True, in_22k = True, num_classes = 21841)
-    model.head = nn.Linear(in_features = 768, out_features = num_classes, bias = True)
+    model = timm.create_model('inception_v4', pretrained=True)
+    model.last_linear = nn.Linear(in_features = 1536, out_features = num_classes, bias = True)
     model.to(device)
+
     criterion = torch.nn.CrossEntropyLoss()
 
-    optimizer = torch.optim.AdamW(model.parameters(),
-                                  lr=LR,
-                                  weight_decay=1e-8)
-    scheduler = get_cosine_schedule_with_warmup(optimizer,
-                                                num_warmup_steps=0,
-                                                num_training_steps=EPOCH)
+    optimizer = torch.optim.RMSprop(model.parameters(),
+                                    lr = LR,
+                                    eps = 1.0,
+                                    weight_decay=0.9)
+    scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer,
+                                                       gamma = 0.94)
 
     # train, valid, test
     size = len(dataloader_train.dataset)
@@ -217,7 +219,11 @@ if __name__ == "__main__":
     '''
 
     # save model
-    torch.save(model, path_log + f"/model/model_classification_RegDB_{time}.pt")
+    try :
+        torch.save(model, path_log + f"/model/model_classification__RegDB_inception_{time}.pt")
+    except :
+        os.makedirs(path_log + "/model")
+        torch.save(model, path_log + f"/model/model_classification__RegDB_inception_{time}.pt")
 
     # test
     correct = 0

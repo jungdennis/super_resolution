@@ -31,7 +31,7 @@ path_train_img = "/train/images"
 path_val_img = "/val/images"
 path_test_img = "/test/images"
 
-path_log = "C:/super_resolution/log/log_classification/make_model/SYSU"
+path_log = "C:/super_resolution/log/log_classification/make_model/SYSU/convnext"
 
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 
@@ -217,7 +217,11 @@ if __name__ == "__main__":
     '''
 
     # save model
-    torch.save(model, path_log + f"/model/model_classification_SYSU_{time}.pt")
+    try :
+        torch.save(model, path_log + f"/model/model_classification_SYSU_convnext_{time}.pt")
+    except :
+        os.makedirs(path_log + "/model")
+        torch.save(model, path_log + f"/model/model_classification_SYSU_convnext_{time}.pt")
 
     # test
     correct = 0

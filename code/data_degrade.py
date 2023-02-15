@@ -17,7 +17,7 @@ elif path_mode == "SYSU" :
 
 # option 변수 설정
 resize_target = 256
-scale_factor = 4
+scale_factor = 8
 blur_sigma = 3
 noise_sigma = 10
 

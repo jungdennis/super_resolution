@@ -18,12 +18,19 @@ from DLCs.metric_tools import metric_histogram, calc_FAR_FRR_v2, calc_EER, graph
 
 import argparse
 
+# 단일 코드로 돌릴 때 사용
+_resolution = "HR"
+_scale = 4
+_noise = 30
+_model = "IMDN"
+
+# Argparse Setting
 parser = argparse.ArgumentParser(description = "SYSU Database의 Distance와 FAR, FRR, EER을 측정합니다.")
 
-parser.add_argument('--resolution', required = True, choices = ["HR", "LR", "SR"], help = "이미지의 Resolution 선택 (HR, LR, SR)")
-parser.add_argument('--scale', required = False, type = int, help = "LR 이미지의 Scale Factor 입력")
-parser.add_argument('--noise', required = False, type = int, help = "LR 이미지 noise의 sigma 값 입력")
-parser.add_argument('--model', required = False, help = "SR 이미지의 알고리즘 이름 입력")
+parser.add_argument('--resolution', required = True, choices = ["HR", "LR", "SR"], default = _resolution, help = "이미지의 Resolution 선택 (HR, LR, SR)")
+parser.add_argument('--scale', required = False, type = int, default = _scale, help = "LR 이미지의 Scale Factor 입력")
+parser.add_argument('--noise', required = False, type = int, default = _noise, help = "LR 이미지 noise의 sigma 값 입력")
+parser.add_argument('--model', required = False, default = _model, help = "SR 이미지의 알고리즘 이름 입력")
 
 args = parser.parse_args()
 
@@ -139,7 +146,7 @@ if __name__ == "__main__":
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     amp_scaler = torch.cuda.amp.GradScaler(enabled=True)
 
-    model_path = "C:/super_resolution/log/log_classification/make_model/SYSU/model"
+    model_path = "/log/log_classification/make_model/SYSU/convnext/model"
     latest_model = os.listdir(model_path)[-1]
     model = torch.load(model_path + "/" + latest_model)
     model.head = nn.Identity()

@@ -7,14 +7,23 @@ from DLCs.metric_tools import metric_histogram, calc_FAR_FRR_v2, calc_EER, graph
 
 import argparse
 
+# 단일 코드로 돌릴 때 사용
+_database = "Reg"
+_resolution = "HR"
+_scale = 4
+_noise = 30
+_model = "IMDN"
+_mode = "all"
+
+# Argparse Setting
 parser = argparse.ArgumentParser(description = "거리 측정 파일이 있을 경우에 FAR, FRR, EER을 측정합니다.")
 
-parser.add_argument('--database', required = True, choices = ["Reg", "SYSU"], help = "사용할 데이터베이스 입력 (Reg, SYSU)")
-parser.add_argument('--resolution', required = True, choices = ["HR", "LR", "SR"], help = "이미지의 Resolution 선택 (HR, LR, SR)")
-parser.add_argument('--scale', required = False, type = int, help = "LR 이미지의 Scale Factor 입력")
-parser.add_argument('--noise', required = False, type = int, help = "LR 이미지 noise의 sigma 값 입력")
-parser.add_argument('--model', required = False, help = "SR 이미지의 알고리즘 이름 입력")
-parser.add_argument("--mode", required = False,choices = ["all", "pick_1", "pick_2"],  help = "RegDB의 이미지 선택 모드 입력")
+parser.add_argument('--database', required = True, choices = ["Reg", "SYSU"], default = _database, help = "사용할 데이터베이스 입력 (Reg, SYSU)")
+parser.add_argument('--resolution', required = True, choices = ["HR", "LR", "SR"], default = _resolution, help = "이미지의 Resolution 선택 (HR, LR, SR)")
+parser.add_argument('--scale', required = False, type = int, default = _scale, help = "LR 이미지의 Scale Factor 입력")
+parser.add_argument('--noise', required = False, type = int, default = _noise, help = "LR 이미지 noise의 sigma 값 입력")
+parser.add_argument('--model', required = False, default = _model, help = "SR 이미지의 알고리즘 이름 입력")
+parser.add_argument("--mode", required = True, default = _mode, choices = ["all", "pick_1", "pick_2"],  help = "RegDB의 이미지 선택 모드 입력")
 
 args = parser.parse_args()
 
@@ -70,7 +79,7 @@ if __name__ == "__main__":
     distance_diff.sort()
 
     metric_histogram(distance_same, distance_diff, title=f"Distribution of Distance ({DATABASE}_{option_frag})", density=True,
-                     save_path = path_log + f"hist_{DATABASE}_{option_frag}.png")
+                     save_path = path_log + f"hist2_{DATABASE}_{option_frag}.png")
     # print(min(distance_same), max(distance_same))
     # print(min(distance_diff), max(distance_diff))
 
