@@ -13,17 +13,16 @@ import torch.utils.data as data
 import torch.nn as nn
 from torch.nn.functional import one_hot
 import torchvision.transforms as transforms
-from transformers import get_cosine_schedule_with_warmup
-import timm
+from torchinfo import summary
+from torchvision.models.densenet import densenet169
 
-from DLCs.model_convnext import convnext_small
 from DLCs.mp_dataloader import DataLoader_multi_worker_FIX
 from DLCs.data_record import RecordBox
 
 # Datapath
-path_hr = "C:/super_resolution/data/image/HR"
-path_lr = "/data/image/LR_4_noise10"
-path_sr = "C:/super_resolution/data/image/SR"
+path_hr = "C:/super_resolution/data/image_SYSU/HR"
+path_lr = "C:/super_resolution/data/image_SYSU/LR"
+path_sr = "C:/super_resolution/data/image_SYSU/SR"
 
 path_a = "/A_set"
 path_b = "/B_set"
@@ -32,7 +31,7 @@ path_train_img = "/train/images"
 path_val_img = "/val/images"
 path_test_img = "/test/images"
 
-path_log = "C:/super_resolution/log/log_classification/make_model/RegDB/inception"
+path_log = "C:/super_resolution/log/log_metric/metric_model/SYSU/densenet"
 
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 
@@ -56,12 +55,12 @@ class Dataset_for_Classification(data.Dataset):
 
         # mixup, cutmix는 좀 더 찾아보고 넣자...
         # 일단은 없이 할 수 있는 한 augmentation 진행함
-        self.transform_raw = transforms.Compose([transforms.Resize((299, 299)),
+        self.transform_raw = transforms.Compose([transforms.Resize((224, 224)),
                                                  transforms.ToTensor()])
 
         self.label_list = []
         for name in self.list_files :
-            label = name.split(".")[0].split("_")[4]
+            label = name.split(".")[0].split("_")[0]
             if label not in self.label_list :
                 self.label_list.append(label)
 
@@ -71,7 +70,7 @@ class Dataset_for_Classification(data.Dataset):
     def __getitem__(self, idx):
         _name = self.list_files[idx]
         pil_img = Image.open(self.path_img + self.path_fold + self.path_data + "/" + _name)
-        label = _name.split(".")[0].split("_")[4]
+        label = _name.split(".")[0].split("_")[0]
 
         '''
         if label not in self.label_list:
@@ -100,7 +99,7 @@ if __name__ == "__main__":
     # dataset을 dataloader에 할당
     # 원래는 torch의 dataloader를 부르는게 맞지만
     # 멀티코어 활용을 위해 DataLoader_multi_worker_FIX를 import 하여 사용
-    BATCH_SIZE = 8
+    BATCH_SIZE = 25
 
     dataloader_train = DataLoader_multi_worker_FIX(dataset=dataset_train,
                                                    batch_size=BATCH_SIZE,
@@ -130,27 +129,30 @@ if __name__ == "__main__":
 
     # 학습 설정
     # device, scaler, model, loss, epoch, batch_size, lr, optimizer, scheduler
-    LR = 0.045
-    EPOCH = 30
+    LR = 1e-5
+    EPOCH = 90
     num_classes = len(dataset_train.label_list)
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     amp_scaler = torch.cuda.amp.GradScaler(enabled=True)
 
-    model = timm.create_model('inception_v4', pretrained=True)
-    model.last_linear = nn.Linear(in_features = 1536, out_features = num_classes, bias = True)
+    model = densenet169(weights = "DEFAULT")
+    model.classifier = nn.Linear(in_features=1664, out_features=num_classes, bias=True)
     model.to(device)
 
     criterion = torch.nn.CrossEntropyLoss()
 
-    optimizer = torch.optim.RMSprop(model.parameters(),
-                                    lr = LR,
-                                    eps = 1.0,
-                                    weight_decay=0.9)
-    scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer,
-                                                       gamma = 0.94)
+    optimizer = torch.optim.Adam(model.parameters(),
+                                 lr = LR,
+                                 weight_decay=1e-4)
+    scheduler = torch.optim.lr_scheduler.StepLR(optimizer,
+                                                step_size = 30,
+                                                gamma = 0.1)
+
+    summary(model, (BATCH_SIZE, 3, 224, 224))
 
     # train, valid, test
+    model.train()
     size = len(dataloader_train.dataset)
 
     for i_epoch_raw in range(EPOCH):
@@ -202,6 +204,23 @@ if __name__ == "__main__":
         at = accuracy_train.update_epoch(path = path_log, is_return = True)
         lr.update_epoch(path = path_log)
 
+        if i_epoch % 10 == 0 :
+            try :
+                torch.save({
+                    'epoch': i_epoch,
+                    'model_state_dict': model.state_dict(),
+                    'optimizer_state_dict': optimizer.state_dict(),
+                    'scheduler_state_dict': scheduler.state_dict(),
+                }, path_log + f"/ckpt/ckeckpoint_{time}_epoch{i_epoch}.pt")
+            except :
+                os.makedirs(path_log + "/ckpt")
+                torch.save({
+                    'epoch': i_epoch,
+                    'model_state_dict': model.state_dict(),
+                    'optimizer_state_dict': optimizer.state_dict(),
+                    'scheduler_state_dict': scheduler.state_dict(),
+                }, path_log + f"/ckpt/ckeckpoint_{time}_epoch{i_epoch}.pt")
+
         print("train : loss {}, accuracy {}%".format(lt, at))
         print("------------------------------------------------------------------------")
 
@@ -220,12 +239,13 @@ if __name__ == "__main__":
 
     # save model
     try :
-        torch.save(model, path_log + f"/model/model_classification__RegDB_inception_{time}.pt")
+        torch.save(model, path_log + f"/model/model_classification_SYSU_densenet_{time}.pt")
     except :
         os.makedirs(path_log + "/model")
-        torch.save(model, path_log + f"/model/model_classification__RegDB_inception_{time}.pt")
+        torch.save(model, path_log + f"/model/model_classification_SYSU_densenet_{time}.pt")
 
     # test
+    model.eval()
     correct = 0
     total = 0
     for i_dataloader in dataloader_test:

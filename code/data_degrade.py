@@ -17,9 +17,9 @@ elif path_mode == "SYSU" :
 
 # option 변수 설정
 resize_target = 256
-scale_factor = 8
+scale_factor = 4
 blur_sigma = 3
-noise_sigma = 10
+noise_sigma = 30
 
 def degrade(fold, set, name) :
     # 원본 이미지 불러오기
@@ -30,8 +30,8 @@ def degrade(fold, set, name) :
     resize = (resize_target, resize_target)
     img_resize = cv2.resize(img_in, resize, cv2.INTER_LANCZOS4)
 
-    save_path_hr = save_path + "HR/" + fold + "/" + set + "/images/" + name
-    cv2.imwrite(save_path_hr, img_resize)
+    # save_path_hr = save_path + "HR/" + fold + "/" + set + "/images/" + name
+    # cv2.imwrite(save_path_hr, img_resize)
 
     # SYSU Database 오류 수정용
     img_resize = cv2.imread(save_path + "HR/" + fold + "/" + set + "/images/" + name)
@@ -67,8 +67,12 @@ def degrade(fold, set, name) :
 
     img_out = cv2.merge((img_noise_b, img_noise_g, img_noise_r))
 
-    save_path_sr = save_path + f"LR_{scale_factor}_noise{noise_sigma}/" + fold + "/" + set + "/images/" + name
-    cv2.imwrite(save_path_sr, img_out)
+    save_path_lr = save_path + f"LR_{scale_factor}_noise{noise_sigma}/" + fold + "/" + set + "/images/"
+    try :
+        os.makedirs(save_path_lr)
+    except :
+        pass
+    cv2.imwrite(save_path_lr + name, img_out)
 
 # 이미지 리스트 불러오기
 fold_list = os.listdir(load_path)
@@ -92,7 +96,7 @@ for fold in fold_list :
             degrade(fold, set, img)
 
 # 옵션 변수 csv 파일에 저장
-option_csv_path = main_path + "option_degrade.csv"
+option_csv_path = main_path + "data_degrade_option.csv"
 
 option_write = open(option_csv_path, 'a', encoding = 'utf-8', newline = '')
 writer = csv.writer(option_write)
