@@ -21,7 +21,7 @@ from DLCs.super_resolution.model_bsrn import BSRN
 
 # Data path
 path_hr = "C:/super_resolution/data/image/HR"
-path_lr = "C:/super_resolution/data/image/LR"
+path_lr = "/data/image/LR_4_noise10"
 path_sr = "C:/super_resolution/data/image/SR"
 
 path_a = "/A_set"
@@ -73,7 +73,7 @@ class Dataset_for_SR(data.Dataset):
         # 이미지 파일 이름 뽑아오기
         _name = self.list_files[idx]
 
-        # Original, LR 이미지 불러오기
+        # Original, LR_4_noise10 이미지 불러오기
         pil_hr = Image.open(self.path_hr + self.path_fold + self.path_image + "/" + _name)
         pil_lr = Image.open(self.path_lr + self.path_fold + self.path_image + "/" + _name)
 
@@ -89,7 +89,7 @@ class Dataset_for_SR(data.Dataset):
                                                          scaler = 1.0,
                                                          is_random = self.is_train,
                                                          itp_opt_img = Image.LANCZOS,
-                                                         # 선택 (LR Image 관련)
+                                                         # 선택 (LR_4_noise10 Image 관련)
                                                          in_pil_lr = pil_lr,
                                                          in_scale_factor = self.scale_factor,
                                                          target_size_lr = self.size_lr)

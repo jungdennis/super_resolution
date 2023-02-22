@@ -1,5 +1,8 @@
 import os
 import random
+import argparse
+import datetime
+import csv
 
 import torch.utils.data as data
 import torchvision.transforms as transforms
@@ -18,24 +21,65 @@ import numpy as np
 import matplotlib.pyplot as plt
 from DLCs.super_resolution.model_imdn import IMDN
 
-# Data path
-path_hr = "C:/super_resolution/data/image/HR"
-path_lr = "C:/super_resolution/data/image/LR"
-path_sr = "C:/super_resolution/data/image/SR"
+# random seed 고정
+SEED = 485
+random.seed(SEED)
+np.random.seed(SEED)
+torch.manual_seed(SEED)
 
-path_a = "/A_set"
-path_b = '/B_set'
-path_fold = path_a
+# 단일 코드로 돌릴 때 사용
+_database = "Reg"
+_fold = "A"
+_scale = 4
+_noise = 30
+_batch = 16
+_csv = True
+
+# Argparse Setting
+parser = argparse.ArgumentParser(description = "IMDN model을 이용해 Super Resolution을 진행합니다. (Test)")
+
+parser.add_argument('--database', required = False, choices = ["Reg", "SYSU"], default = _database, help = "사용할 데이터베이스 입력 (Reg, SYSU)")
+parser.add_argument('--fold', required = False, choices = ["A", "B"], default = _fold, help = "학습을 진행할 fold 입력 (A, B)")
+parser.add_argument('--scale', required = False, type = int, default = _scale, help = "LR 이미지의 Scale Factor 입력")
+parser.add_argument('--batch', required = False, type = int, default = _batch, help = "학습을 진행할 batch size 입력")
+parser.add_argument('--noise', required = False, type = int, default = _noise, help = "LR 이미지 noise의 sigma 값 입력")
+parser.add_argument("--csv", required = False, action='store_true', help = "csv파일에 기록 여부 선택 (True, False)")
+
+args = parser.parse_args()
+
+# Mode Setting
+DATABASE = args.database        # Reg or SYSU
+FOLD = args.fold
+SCALE_FACTOR = args.scale
+NOISE = args.noise
+BATCH_SIZE = args.batch
+CSV = args.csv
+
+# # 단일 코드로 돌릴 때의 옵션
+# CSV = _csv
+
+# Datapath
+if DATABASE == "Reg" :
+    path_img = "C:/super_resolution/data/image/"
+elif DATABASE == "SYSU" :
+    path_img = "C:/super_resolution/data/image_SYSU/"
+
+path_hr = path_img + "HR"
+path_lr = path_img + f"LR_{SCALE_FACTOR}_noise{NOISE}"
+path_sr = path_img + "SR_IMDN"
+
+path_fold = f"/{FOLD}_set"
 
 path_train_img = "/train/images"
 path_valid_img = "/val/images"
 path_test_img = "/test/images"
 
-path_model = "/IMDN"
-
-path_log = "C:/super_resolution/log/log_sr"
+path_log = f"C:/super_resolution/log/log_sr/IMDN/{DATABASE}/{FOLD}_set"
 
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
+
+dt_now = datetime.datetime.now()
+date = str(dt_now.year) + "-" + str(dt_now.month) + "-" + str(dt_now.day) + " " + str(dt_now.hour) + ":" + str(dt_now.minute)
 
 class Dataset_for_SR(data.Dataset):
     def __init__(self, **kwargs):
@@ -69,7 +113,7 @@ class Dataset_for_SR(data.Dataset):
         # 이미지 파일 이름 뽑아오기
         _name = self.list_files[idx]
 
-        # Original, LR 이미지 불러오기
+        # Original, LR_4_noise10 이미지 불러오기
         pil_hr = Image.open(self.path_hr + self.path_fold + self.path_image + "/" + _name)
         pil_lr = Image.open(self.path_lr + self.path_fold + self.path_image + "/" + _name)
 
@@ -78,27 +122,22 @@ class Dataset_for_SR(data.Dataset):
 
         # train일 경우 image crop, data augmentaion 진행
         if self.is_test is False:
-            pil_hr_patch, pil_lr_patch = pil_marginer_v3(in_pil_hr=pil_hr
-                                                         , target_size_hr=self.size_hr
-                                                         , img_background=(0, 0, 0)
+            pil_hr_patch, pil_lr_patch = pil_marginer_v3(in_pil_hr=pil_hr,
+                                                         target_size_hr=self.size_hr,
+                                                         img_background=(0, 0, 0),
                                                          # (선택) 세부옵션 (각각 default 값 있음)
-                                                         , scaler=1.0
-                                                         , is_random=self.is_train
-                                                         , itp_opt_img=Image.LANCZOS
-                                                         # 선택 (LR Image 관련)
-                                                         , in_pil_lr=pil_lr
-                                                         , in_scale_factor=self.scale_factor
-                                                         , target_size_lr=self.size_lr
-                                                         )
+                                                         scaler=1.0,
+                                                         is_random=self.is_train,
+                                                         itp_opt_img=Image.LANCZOS,
+                                                         # 선택 (LR_4_noise10 Image 관련)
+                                                         in_pil_lr=pil_lr,
+                                                         in_scale_factor=self.scale_factor,
+                                                         target_size_lr=self.size_lr)
             # imshow_pil(pil_hr_patch)
             # imshow_pil
 
-            pil_hr_patch, pil_lr_patch = pil_augm_lite(pil_hr_patch
-                                                       , pil_lr_patch
-                                                       , self.flip_hori
-                                                       , self.flip_vert
-                                                       , get_info=False
-                                                       )
+            pil_hr_patch, pil_lr_patch = pil_augm_lite(pil_hr_patch, pil_lr_patch,
+                                                       self.flip_hori, self.flip_vert, get_info=False)
 
             # imshow_pil(pil_hr_patch)
             # imshow_pil(pil_lr_patch)
@@ -110,27 +149,23 @@ class Dataset_for_SR(data.Dataset):
             return self.transform_raw(pil_hr), self.transform_raw(pil_lr), _name
 
 if __name__ == "__main__":
+    if CSV :
+        try :
+            log_check = open("C:/super_resolution/log/log_sr/sr_log.csv", "r")
+            log_check.close()
+            log = open("C:/super_resolution/log/log_sr/sr_log.csv", "a", newline = "")
+            log_write = csv.writer(log, delimiter=',')
+        except :
+            log = open("C:/super_resolution/log/log_sr/sr_log.csv", "a", newline = "")
+            log_write = csv.writer(log, delimiter = ',')
+            log_write.writerow(["date", "database", "degrade", "mode", "loss", "psnr", "ssim"])
+
     # 기본 설정 : device, scaler, model, loss, epoch, batch_size, random_seed, lr, optimizer, scheduler
     # train 코드의 그것을 그대로 배껴주세요
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    amp_scaler = torch.cuda.amp.GradScaler(enabled=True)
     model = IMDN(upscale=4)
     model.to(device)
     criterion = torch.nn.L1Loss()
-    HP_LR = 2e-4
-    HP_EPOCH = 400
-    HP_BATCH = 16
-    HP_SEED = 485
-    optimizer = torch.optim.Adam(model.parameters()
-                                 , lr=HP_LR)
-    scheduler = torch.optim.lr_scheduler.StepLR(optimizer=optimizer
-                                                , step_size=50
-                                                , gamma=0.5)
-
-    # random seed 고정
-    random.seed(HP_SEED)
-    np.random.seed(HP_SEED)
-    torch.manual_seed(HP_SEED)
 
     # Ignite를 활용한 PSNR, SSIM 계산을 위한 준비
     def ignite_eval_step(engine, batch):
@@ -142,59 +177,11 @@ if __name__ == "__main__":
     ignite_ssim = ignite.metrics.SSIM(data_range=1.0, device=device)
     ignite_ssim.attach(ignite_evaluator, 'ssim')
 
-    # checkpoint 저장 log 불러오기
-    '''
-    torch.save({
-            'epoch': i_epoch,
-            'model_state_dict': model.state_dict(),
-            'optimizer_state_dict': optimizer.state_dict(),
-            'scheduler_state_dict': scheduler.state_dict(),
-            'loss_train': loss_train_list,
-            'psnr_train': psnr_train_list,
-            'ssim_train': ssim_train_list,
-            'loss_valid': loss_valid_list,
-            'psnr_valid': psnr_valid_list,
-            'ssim_valid': ssim_valid_list,
-        })
-    '''
-    checkpoint_path = path_log + path_model + f"/checkpoint/epoch{HP_EPOCH}.pt"
-    checkpoint = torch.load(checkpoint_path)
-    model.load_state_dict(checkpoint["model_state_dict"])
-    optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
-    scheduler.load_state_dict(checkpoint["scheduler_state_dict"])
-
-    '''
-    loss_train = checkpoint["loss_train"]
-    psnr_train = checkpoint["psnr_train"]
-    ssim_train = checkpoint["ssim_train"]
-    loss_valid = checkpoint["loss_valid"]
-    psnr_valid = checkpoint["psnr_valid"]
-    ssim_valid = checkpoint["ssim_valid"]
-
-    plt.plot(range(1, HP_EPOCH+1), loss_train, range(1, HP_EPOCH+1), loss_valid)
-    plt.title("Loss (Fold A)")
-    plt.xlabel("epoch")
-    plt.ylabel("loss")
-    plt.legend(["train", "valid"])
-    plt.show()
-    plt.savefig("./loss_a.png")
-
-    plt.plot(range(1, HP_EPOCH + 1), psnr_train, range(1, HP_EPOCH + 1), psnr_valid)
-    plt.title("PSNR (Fold A)")
-    plt.xlabel("epoch")
-    plt.ylabel("PSNR")
-    plt.legend(["train", "valid"])
-    plt.show()
-    plt.savefig("./psnr_a.png")
-
-    plt.plot(range(1, HP_EPOCH + 1), ssim_train, range(1, HP_EPOCH + 1), ssim_valid)
-    plt.title("SSIM (Fold A)")
-    plt.xlabel("epoch")
-    plt.ylabel("SSIM")
-    plt.legend(["train", "valid"])
-    plt.show()
-    plt.savefig("./ssim_a.png")
-    '''
+    checkpoint_path = path_log + "/checkpoint"
+    ckpt_list = os.listdir(checkpoint_path)
+    print(checkpoint_path + f"/{ckpt_list[-1]}")
+    ckpt = torch.load(checkpoint_path + f"/{ckpt_list[-1]}")
+    model.load_state_dict(ckpt["model_state_dict"])
 
     loss_test = RecordBox(name="loss_test", is_print=False)
     psnr_test = RecordBox(name="psnr_test", is_print=False)
@@ -206,14 +193,15 @@ if __name__ == "__main__":
                                   path_image=path_test_img,
                                   is_test=True)
 
-    dataloader_test = DataLoader_multi_worker_FIX(dataset=dataset_test
-                                                  , batch_size=1
-                                                  , shuffle=False
-                                                  , num_workers=2
-                                                  , prefetch_factor=2
-                                                  , drop_last=False)
+    dataloader_test = DataLoader_multi_worker_FIX(dataset=dataset_test,
+                                                  batch_size=1,
+                                                  shuffle=False,
+                                                  num_workers=2,
+                                                  prefetch_factor=2,
+                                                  drop_last=False)
 
     # test
+    model.eval()
     for i_dataloader in dataloader_test:
         i_batch_hr, i_batch_lr, i_batch_name = i_dataloader
         i_batch_hr = i_batch_hr.to(device)
@@ -230,14 +218,18 @@ if __name__ == "__main__":
 
             # 이미지 저장
             pil_sr = to_pil_image(ts_sr)
-            pil_sr.save(path_sr + path_model + path_fold + path_test_img + "/" + name)
+            try :
+                pil_sr.save(path_sr + path_fold + path_test_img + "/" + name)
+            except :
+                os.makedirs(path_sr + path_fold + path_test_img)
+                pil_sr.save(path_sr + path_fold + path_test_img + "/" + name)
 
             # PSNR, SSIM 계산
             ts_hr = ts_hr.to(device)
             ts_sr = ts_sr.to(device)
 
-            ignite_result = ignite_evaluator.run([[torch.unsqueeze(ts_sr, 0)
-                                                      , torch.unsqueeze(ts_hr, 0)
+            ignite_result = ignite_evaluator.run([[torch.unsqueeze(ts_sr, 0),
+                                                   torch.unsqueeze(ts_hr, 0)
                                                    ]])
 
             _psnr_test = ignite_result.metrics['psnr']
@@ -249,9 +241,13 @@ if __name__ == "__main__":
         psnr_test.update_batch()
         ssim_test.update_batch()
 
-    _lte = loss_test.update_epoch(is_return=True, path=path_log + path_model)
-    _pte = psnr_test.update_epoch(is_return=True, path=path_log + path_model)
-    _ste = ssim_test.update_epoch(is_return=True, path=path_log + path_model)
+    _lte = loss_test.update_epoch(is_return=True, path=path_log)
+    _pte = psnr_test.update_epoch(is_return=True, path=path_log)
+    _ste = ssim_test.update_epoch(is_return=True, path=path_log)
+
+    if CSV:
+        log_write.writerow([date, "IMDN", DATABASE, f"{SCALE_FACTOR}_{NOISE}", "test", _lte, _pte, _ste])
+        log.close()
 
     print("<Test Result>")
     print("test : loss {}, psnr {}, ssim {}".format(_lte, _pte, _ste))
