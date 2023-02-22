@@ -231,7 +231,7 @@ if __name__ == "__main__":
                                    size_hr=(192, 192),
                                    size_lr=(48, 48))
 
-    dataset_valid = Dataset_for_SR(path_hr=path_hr,
+    dataset_valid = Dataset_for_SR(path_hr=path_hr, 
                                    path_lr=path_lr,
                                    path_fold=path_fold,
                                    path_image=path_valid_img,
