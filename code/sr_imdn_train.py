@@ -12,6 +12,7 @@ from torchvision.transforms.functional import to_pil_image
 from DLCs.data_tools import pil_marginer_v3, pil_augm_lite, imshow_pil
 from DLCs.mp_dataloader import DataLoader_multi_worker_FIX
 from DLCs.data_record import RecordBox
+from DLCs.sr_tools import graph_loss, graph_single
 
 import torch
 
@@ -35,7 +36,6 @@ _noise = 30
 _epoch = 300
 _batch = 16
 _csv = True
-_test = False
 _load = False
 
 # Argparse Setting
@@ -48,7 +48,6 @@ parser.add_argument('--noise', required = False, type = int, default = _noise, h
 parser.add_argument('--epoch', required = False, type = int, default = _epoch, help = "학습을 진행할 epoch 수 입력")
 parser.add_argument('--batch', required = False, type = int, default = _batch, help = "학습을 진행할 batch size 입력")
 parser.add_argument("--csv", required = False, action = 'store_true', help = "csv파일에 기록 여부 선택 (True, False)")
-parser.add_argument("--test", required = False, action = 'store_true', help = "test까지 진행 여부 선택 (True, False)")
 parser.add_argument("--load", required = False, action = 'store_true', help = "이전 학습 기록 load 여부 선택 (True, False)")
 
 args = parser.parse_args()
@@ -61,8 +60,8 @@ NOISE = args.noise
 EPOCH = args.epoch
 BATCH_SIZE = args.batch
 CSV = args.csv
-TEST = args.test
 LOAD = args.load
+SR_MODEL = "IMDN"
 
 # # 단일 코드로 돌릴 때의 옵션
 # CSV = _csv
@@ -77,7 +76,7 @@ elif DATABASE == "SYSU" :
 
 path_hr = path_img + "HR"
 path_lr = path_img + f"LR_{SCALE_FACTOR}_noise{NOISE}"
-path_sr = path_img + "SR_IMDN"
+path_sr = path_img + f"SR_{SR_MODEL}"
 
 path_fold = f"/{FOLD}_set"
 
@@ -85,7 +84,9 @@ path_train_img = "/train/images"
 path_valid_img = "/val/images"
 path_test_img = "/test/images"
 
-path_log = f"C:/super_resolution/log/log_sr/IMDN/{DATABASE}/{FOLD}_set"
+path_log = f"C:/super_resolution/log/log_sr/{SR_MODEL}/{DATABASE}/{FOLD}_set"
+
+option_frag = f"{SR_MODEL}_{DATABASE}_fold {FOLD}"
 
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 
@@ -172,7 +173,7 @@ if __name__ == "__main__":
         except :
             log = open("C:/super_resolution/log/log_sr/sr_log.csv", "a", newline = "")
             log_write = csv.writer(log, delimiter = ',')
-            log_write.writerow(["date", "model", "database", "degrade", "mode", "loss", "psnr", "ssim"])
+            log_write.writerow(["date", "model", "database", "fold", "degrade", "mode", "loss", "psnr", "ssim"])
 
     # 기본 설정 : device, scaler, model, loss, epoch, batch_size, random_seed, lr, optimizer, scheduler
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -231,7 +232,7 @@ if __name__ == "__main__":
                                    size_hr=(192, 192),
                                    size_lr=(48, 48))
 
-    dataset_valid = Dataset_for_SR(path_hr=path_hr, 
+    dataset_valid = Dataset_for_SR(path_hr=path_hr,
                                    path_lr=path_lr,
                                    path_fold=path_fold,
                                    path_image=path_valid_img,
@@ -278,6 +279,11 @@ if __name__ == "__main__":
         optimizer.load_state_dict(ckpt["optimizer_state_dict"])
         scheduler.load_state_dict(ckpt["scheduler_state_dict"])
 
+        try:
+            lr_list = ckpt["lr"]
+        except:
+            pass
+
         loss_train_list = ckpt["loss_train"]
         psnr_train_list = ckpt["psnr_train"]
         ssim_train_list = ckpt["ssim_train"]
@@ -293,6 +299,10 @@ if __name__ == "__main__":
     size = len(dataloader_train.dataset)
     for i_epoch_raw in range(EPOCH):
         i_epoch += 1
+
+        if i_epoch > EPOCH :
+            break
+
         print(f"<epoch {i_epoch}>")
 
         # train
@@ -424,6 +434,7 @@ if __name__ == "__main__":
                     'model_state_dict': model.state_dict(),
                     'optimizer_state_dict': optimizer.state_dict(),
                     'scheduler_state_dict': scheduler.state_dict(),
+                    'lr' : lr_list,
                     'loss_train': loss_train_list,
                     'psnr_train': psnr_train_list,
                     'ssim_train': ssim_train_list,
@@ -438,6 +449,7 @@ if __name__ == "__main__":
                     'model_state_dict': model.state_dict(),
                     'optimizer_state_dict': optimizer.state_dict(),
                     'scheduler_state_dict': scheduler.state_dict(),
+                    'lr' : lr_list,
                     'loss_train': loss_train_list,
                     'psnr_train': psnr_train_list,
                     'ssim_train': ssim_train_list,
@@ -450,12 +462,27 @@ if __name__ == "__main__":
         print("valid : loss {}, psnr {}, ssim : {}".format(_lv, _pv, _sv))
         print("------------------------------------------------------------------------")
 
+    graph_loss(loss_train_list, loss_valid_list, save = path_log + f"/loss_{option_frag}.png",
+               title = f"Graph of Loss ({option_frag})")
+
+    try :
+        graph_single(lr_list, "lr", save = path_log + f"/lr_{option_frag}.png",
+                     title = f"Graph of LR ({option_frag})")
+    except :
+        pass
+
+    graph_single(psnr_train_list, "PSNR", save = path_log + f"/psnr_train_{option_frag}.png",
+                 title = f"Graph of PSNR_train ({option_frag})", print_max = True)
+    graph_single(psnr_valid_list, "PSNR", save = path_log + f"/psnr_valid_{option_frag}.png",
+                 title = f"Graph of PSNR_valid ({option_frag})", print_max = True)
+    graph_single(ssim_train_list, "SSIM", save = path_log + f"/ssim_train_{option_frag}.png",
+                 title = f"Graph of SSIM_train ({option_frag})", print_max = True)
+    graph_single(ssim_valid_list, "SSIM", save = path_log + f"/ssim_valid_{option_frag}.png",
+                 title = f"Graph of SSIM_valid ({option_frag})", print_max = True)
+
     if CSV:
-        log_write.writerow([date, "IMDN", DATABASE, f"{SCALE_FACTOR}_{NOISE}", "train", min(loss_train_list), max(psnr_train_list), max(ssim_train_list)])
-        log_write.writerow([date, "IMDN", DATABASE, f"{SCALE_FACTOR}_{NOISE}", "valid", min(loss_valid_list), max(psnr_valid_list), max(ssim_valid_list)])
+        log_write.writerow([date, SR_MODEL, DATABASE, FOLD, f"{SCALE_FACTOR}_{NOISE}", "train", min(loss_train_list), max(psnr_train_list), max(ssim_train_list)])
+        log_write.writerow([date, SR_MODEL, DATABASE, FOLD, f"{SCALE_FACTOR}_{NOISE}", "valid", min(loss_valid_list), max(psnr_valid_list), max(ssim_valid_list)])
         log.close()
 
     print("training complete! - check the log and go to test session")
-
-    if TEST :
-        os.system(f"python sr_imdn_test.py --database {DATABASE} --fold {FOLD} --scale {SCALE_FACTOR} --noise {NOISE} --batch {BATCH_SIZE} --csv")

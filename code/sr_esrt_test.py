@@ -19,7 +19,7 @@ from PIL import Image, ImageFilter
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt
-from DLCs.super_resolution.model_imdn import IMDN
+from DLCs.super_resolution.model_esrt import ESRT
 
 # random seed 고정
 SEED = 485
@@ -36,7 +36,7 @@ _batch = 16
 _csv = True
 
 # Argparse Setting
-parser = argparse.ArgumentParser(description = "IMDN model을 이용해 Super Resolution을 진행합니다. (Test)")
+parser = argparse.ArgumentParser(description = "ESRT model을 이용해 Super Resolution을 진행합니다. (Test)")
 
 parser.add_argument('--database', required = False, choices = ["Reg", "SYSU"], default = _database, help = "사용할 데이터베이스 입력 (Reg, SYSU)")
 parser.add_argument('--fold', required = False, choices = ["A", "B"], default = _fold, help = "학습을 진행할 fold 입력 (A, B)")
@@ -66,7 +66,7 @@ elif DATABASE == "SYSU" :
 
 path_hr = path_img + "HR"
 path_lr = path_img + f"LR_{SCALE_FACTOR}_noise{NOISE}"
-path_sr = path_img + "SR_IMDN"
+path_sr = path_img + "SR_ESRT"
 
 path_fold = f"/{FOLD}_set"
 
@@ -74,7 +74,7 @@ path_train_img = "/train/images"
 path_valid_img = "/val/images"
 path_test_img = "/test/images"
 
-path_log = f"C:/super_resolution/log/log_sr/IMDN/{DATABASE}/{FOLD}_set"
+path_log = f"C:/super_resolution/log/log_sr/ESRT/{DATABASE}/{FOLD}_set"
 
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 
@@ -163,7 +163,7 @@ if __name__ == "__main__":
     # 기본 설정 : device, scaler, model, loss, epoch, batch_size, random_seed, lr, optimizer, scheduler
     # train 코드의 그것을 그대로 배껴주세요
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    model = IMDN(upscale=4)
+    model = ESRT(upscale=4)
     model.to(device)
     criterion = torch.nn.L1Loss()
 
@@ -246,7 +246,7 @@ if __name__ == "__main__":
     _ste = ssim_test.update_epoch(is_return=True, path=path_log)
 
     if CSV:
-        log_write.writerow([date, "IMDN", DATABASE, FOLD, f"{SCALE_FACTOR}_{NOISE}", "test", _lte, _pte, _ste])
+        log_write.writerow([date, "ESRT", DATABASE, FOLD, f"{SCALE_FACTOR}_{NOISE}", "test", _lte, _pte, _ste])
         log.close()
 
     print("<Test Result>")

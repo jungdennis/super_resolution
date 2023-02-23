@@ -7,7 +7,6 @@ import datetime
 import torch.utils.data as data
 import torchvision.transforms as transforms
 import ignite
-from transformers import get_cosine_schedule_with_warmup
 from torchvision.transforms.functional import to_pil_image
 
 from DLCs.data_tools import pil_marginer_v3, pil_augm_lite, imshow_pil
@@ -21,7 +20,7 @@ from PIL import Image, ImageFilter
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt
-from DLCs.super_resolution.model_bsrn import BSRN
+from DLCs.super_resolution.model_esrt import ESRT
 
 # random seed 고정
 SEED = 485
@@ -40,7 +39,7 @@ _csv = True
 _load = False
 
 # Argparse Setting
-parser = argparse.ArgumentParser(description = "BSRN model을 이용해 Super Resolution을 진행합니다. (Train)")
+parser = argparse.ArgumentParser(description = "ESRT model을 이용해 Super Resolution을 진행합니다. (Train)")
 
 parser.add_argument('--database', required = False, choices = ["Reg", "SYSU"], default = _database, help = "사용할 데이터베이스 입력 (Reg, SYSU)")
 parser.add_argument('--fold', required = False, choices = ["A", "B"], default = _fold, help = "학습을 진행할 fold 입력 (A, B)")
@@ -62,7 +61,7 @@ EPOCH = args.epoch
 BATCH_SIZE = args.batch
 CSV = args.csv
 LOAD = args.load
-SR_MODEL = "BSRN"
+SR_MODEL = "ESRT"
 
 # # 단일 코드로 돌릴 때의 옵션
 # CSV = _csv
@@ -179,16 +178,16 @@ if __name__ == "__main__":
     # 기본 설정 : device, scaler, model, loss, epoch, batch_size, random_seed, lr, optimizer, scheduler
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     amp_scaler = torch.cuda.amp.GradScaler(enabled=True)
-    model = BSRN(upscale=4)
+    model = ESRT(upscale=4)
     model.to(device)
     criterion = torch.nn.L1Loss()
-    LR = 1e-3
-    
+    LR = 2e-4
+
     optimizer = torch.optim.Adam(model.parameters(),
                                  lr=LR)
-    scheduler = get_cosine_schedule_with_warmup(optimizer,
-                                                num_warmup_steps = 0,
-                                                num_training_steps = EPOCH)  
+    scheduler = torch.optim.lr_scheduler.StepLR(optimizer=optimizer,
+                                                step_size=50,
+                                                gamma=0.5)
 
     # Ignite를 활용한 PSNR, SSIM 계산을 위한 준비
     def ignite_eval_step(engine, batch):
@@ -228,12 +227,12 @@ if __name__ == "__main__":
                                    is_train=True,
                                    is_test=False,
                                    flip_hori=True,
-                                   flip_vert=True,
+                                   flip_vert=False,
                                    scale_factor=4,
                                    size_hr=(192, 192),
                                    size_lr=(48, 48))
 
-    dataset_valid = Dataset_for_SR(path_hr=path_hr, 
+    dataset_valid = Dataset_for_SR(path_hr=path_hr,
                                    path_lr=path_lr,
                                    path_fold=path_fold,
                                    path_image=path_valid_img,
@@ -276,14 +275,14 @@ if __name__ == "__main__":
 
         i_epoch = ckpt["epoch"]
 
+        try:
+            lr_list = ckpt["lr"]
+        except:
+            pass
+
         model.load_state_dict(ckpt["model_state_dict"])
         optimizer.load_state_dict(ckpt["optimizer_state_dict"])
         scheduler.load_state_dict(ckpt["scheduler_state_dict"])
-
-        try :
-            lr_list = ckpt["lr"]
-        except :
-            pass
 
         loss_train_list = ckpt["loss_train"]
         psnr_train_list = ckpt["psnr_train"]
@@ -300,10 +299,11 @@ if __name__ == "__main__":
     size = len(dataloader_train.dataset)
     for i_epoch_raw in range(EPOCH):
         i_epoch += 1
-        print(f"<epoch {i_epoch}>")
 
         if i_epoch > EPOCH :
             break
+
+        print(f"<epoch {i_epoch}>")
 
         # train
         optimizer.zero_grad()
@@ -458,8 +458,6 @@ if __name__ == "__main__":
                     'ssim_valid': ssim_valid_list,
                 }, path_log + f"/checkpoint/epoch_{epoch_save}.pt")
 
-
-
         print("train : loss {}, psnr {}, ssim : {}".format(_lt, _pt, _st))
         print("valid : loss {}, psnr {}, ssim : {}".format(_lv, _pv, _sv))
         print("------------------------------------------------------------------------")
@@ -467,10 +465,10 @@ if __name__ == "__main__":
     graph_loss(loss_train_list, loss_valid_list, save = path_log + f"/loss_{option_frag}.png",
                title = f"Graph of Loss ({option_frag})")
 
-    try :
-        graph_single(lr_list, "lr", save = path_log + f"/lr_{option_frag}.png",
-                     title = f"Graph of LR ({option_frag})")
-    except :
+    try:
+        graph_single(lr_list, "lr", save=path_log + f"/lr_{option_frag}.png",
+                     title=f"Graph of LR ({option_frag})")
+    except:
         pass
 
     graph_single(psnr_train_list, "PSNR", save = path_log + f"/psnr_train_{option_frag}.png",
