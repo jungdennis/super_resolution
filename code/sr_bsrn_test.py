@@ -19,6 +19,7 @@ from PIL import Image, ImageFilter
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt
+from tqdm import tqdm
 from DLCs.super_resolution.model_bsrn import BSRN
 
 # random seed 고정
@@ -54,6 +55,7 @@ SCALE_FACTOR = args.scale
 NOISE = args.noise
 BATCH_SIZE = args.batch
 CSV = args.csv
+SR_MODEL = "BSRN"
 
 # # 단일 코드로 돌릴 때의 옵션
 # CSV = _csv
@@ -66,7 +68,7 @@ elif DATABASE == "SYSU" :
 
 path_hr = path_img + "HR"
 path_lr = path_img + f"LR_{SCALE_FACTOR}_noise{NOISE}"
-path_sr = path_img + "SR_BSRN"
+path_sr = path_img + f"SR_{SR_MODEL}"
 
 path_fold = f"/{FOLD}_set"
 
@@ -74,7 +76,7 @@ path_train_img = "/train/images"
 path_valid_img = "/val/images"
 path_test_img = "/test/images"
 
-path_log = f"C:/super_resolution/log/log_sr/BSRN/{DATABASE}/{FOLD}_set"
+path_log = f"C:/super_resolution/log/log_sr/{SR_MODEL}/{DATABASE}/{FOLD}_set"
 
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 
@@ -202,52 +204,53 @@ if __name__ == "__main__":
 
     # test
     model.eval()
-    for i_dataloader in dataloader_test:
-        i_batch_hr, i_batch_lr, i_batch_name = i_dataloader
-        i_batch_hr = i_batch_hr.to(device)
-        i_batch_lr = i_batch_lr.to(device)
+    with tqdm(dataloader_test, unit="batch", ncols=120) as progress_test:
+        for i_dataloader in dataloader_test:
+            progress_test.set_description("Test ")
 
-        with torch.no_grad():
-            i_batch_sr = model(i_batch_lr)
-            _loss_test = criterion(i_batch_sr, i_batch_hr)
-            loss_test.add_item(_loss_test.item())
+            i_batch_hr, i_batch_lr, i_batch_name = i_dataloader
+            i_batch_hr = i_batch_hr.to(device)
+            i_batch_lr = i_batch_lr.to(device)
 
-            ts_hr = torch.clamp(i_batch_hr[0], min=0, max=1).to(device)
-            ts_sr = torch.clamp(i_batch_sr[0], min=0, max=1).to(device)  # B C H W
-            name = i_batch_name[0]
+            with torch.no_grad():
+                i_batch_sr = model(i_batch_lr)
+                _loss_test = criterion(i_batch_sr, i_batch_hr)
+                loss_test.add_item(_loss_test.item())
 
-            # 이미지 저장
-            pil_sr = to_pil_image(ts_sr)
-            try :
-                pil_sr.save(path_sr + path_fold + path_test_img + "/" + name)
-            except :
-                os.makedirs(path_sr + path_fold + path_test_img)
-                pil_sr.save(path_sr + path_fold + path_test_img + "/" + name)
+                ts_hr = torch.clamp(i_batch_hr[0], min=0, max=1).to(device)
+                ts_sr = torch.clamp(i_batch_sr[0], min=0, max=1).to(device)  # B C H W
+                name = i_batch_name[0]
 
-            # PSNR, SSIM 계산
-            ts_hr = ts_hr.to(device)
-            ts_sr = ts_sr.to(device)
+                # 이미지 저장
+                pil_sr = to_pil_image(ts_sr)
+                try:
+                    pil_sr.save(path_sr + path_fold + path_test_img + "/" + name)
+                except:
+                    os.makedirs(path_sr + path_fold + path_test_img)
+                    pil_sr.save(path_sr + path_fold + path_test_img + "/" + name)
 
-            ignite_result = ignite_evaluator.run([[torch.unsqueeze(ts_sr, 0),
-                                                   torch.unsqueeze(ts_hr, 0)
-                                                   ]])
+                # PSNR, SSIM 계산
+                ts_hr = ts_hr.to(device)
+                ts_sr = ts_sr.to(device)
 
-            _psnr_test = ignite_result.metrics['psnr']
-            _ssim_test = ignite_result.metrics['ssim']
-            psnr_test.add_item(_psnr_test)
-            ssim_test.add_item(_ssim_test)
+                ignite_result = ignite_evaluator.run([[torch.unsqueeze(ts_sr, 0),
+                                                       torch.unsqueeze(ts_hr, 0)
+                                                       ]])
 
-        loss_test.update_batch()
-        psnr_test.update_batch()
-        ssim_test.update_batch()
+                _psnr_test = ignite_result.metrics['psnr']
+                _ssim_test = ignite_result.metrics['ssim']
+                psnr_test.add_item(_psnr_test)
+                ssim_test.add_item(_ssim_test)
+
+            loss_test.update_batch()
+            psnr_test.update_batch()
+            ssim_test.update_batch()
 
     _lte = loss_test.update_epoch(is_return=True, path=path_log)
     _pte = psnr_test.update_epoch(is_return=True, path=path_log)
     _ste = ssim_test.update_epoch(is_return=True, path=path_log)
-
     if CSV:
-        log_write.writerow([date, "BSRN", DATABASE, f"{SCALE_FACTOR}_{NOISE}", "test", _lte, _pte, _ste])
+        log_write.writerow([date, SR_MODEL, DATABASE, FOLD, f"{SCALE_FACTOR}_{NOISE}", "test", _lte, _pte, _ste])
         log.close()
 
-    print("<Test Result>")
-    print("test : loss {}, psnr {}, ssim {}".format(_lte, _pte, _ste))
+    print("<Test Result> loss {}, psnr {}, ssim {}".format(_lte, _pte, _ste))

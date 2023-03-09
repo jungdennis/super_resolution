@@ -20,6 +20,7 @@ from PIL import Image, ImageFilter
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt
+from tqdm import tqdm
 from DLCs.super_resolution.model_esrt import ESRT
 
 # random seed 고정
@@ -300,66 +301,66 @@ if __name__ == "__main__":
     for i_epoch_raw in range(EPOCH):
         i_epoch += 1
 
-        if i_epoch > EPOCH :
+        if i_epoch > EPOCH:
             break
 
-        print(f"<epoch {i_epoch}>")
+        print(f"<Epoch {i_epoch}>")
 
         # train
         optimizer.zero_grad()
         model.train()
-        for batch, i_dataloader in enumerate(dataloader_train):
-            i_batch_hr, i_batch_lr, i_batch_name = i_dataloader
-            i_batch_hr = i_batch_hr.to(device)
-            i_batch_lr = i_batch_lr.to(device)
+        with tqdm(dataloader_train, unit="batch", ncols=120) as progress_train:
+            for batch, i_dataloader in enumerate(dataloader_train):
+                progress_train.set_description(f"Train ")
 
-            i_batch_lr = i_batch_lr.requires_grad_(True)
+                i_batch_hr, i_batch_lr, i_batch_name = i_dataloader
+                i_batch_hr = i_batch_hr.to(device)
+                i_batch_lr = i_batch_lr.to(device)
 
-            i_batch_sr = model(i_batch_lr)
+                i_batch_lr = i_batch_lr.requires_grad_(True)
 
-            _loss_train = criterion(i_batch_sr, i_batch_hr)
-            loss_train.add_item(_loss_train.item())
+                i_batch_sr = model(i_batch_lr)
 
-            amp_scaler.scale(_loss_train).backward(retain_graph=False)
-            amp_scaler.step(optimizer)
-            amp_scaler.update()
-            optimizer.zero_grad()
+                _loss_train = criterion(i_batch_sr, i_batch_hr)
+                loss_train.add_item(_loss_train.item())
 
-            with torch.no_grad():
-                for i_batch in range(BATCH_SIZE):
-                    ts_hr = torch.clamp(i_batch_hr[i_batch], min=0, max=1).to(device)
-                    ts_sr = torch.clamp(i_batch_sr[i_batch], min=0, max=1).to(device)  # B C H W
-                    name = i_batch_name[i_batch]
+                amp_scaler.scale(_loss_train).backward(retain_graph=False)
+                amp_scaler.step(optimizer)
+                amp_scaler.update()
+                optimizer.zero_grad()
 
-                    # 이미지 저장
-                    pil_sr = to_pil_image(ts_sr)
-                    try :
-                        pil_sr.save(path_sr + path_fold + path_train_img + "/" + name)
-                    except :
-                        os.makedirs(path_sr + path_fold + path_train_img)
-                        pil_sr.save(path_sr + path_fold + path_train_img + "/" + name)
+                with torch.no_grad():
+                    for i_batch in range(BATCH_SIZE):
+                        ts_hr = torch.clamp(i_batch_hr[i_batch], min=0, max=1).to(device)
+                        ts_sr = torch.clamp(i_batch_sr[i_batch], min=0, max=1).to(device)  # B C H W
+                        name = i_batch_name[i_batch]
 
-                    # PSNR, SSIM 계산
-                    ts_hr = ts_hr.to(device)
-                    ts_sr = ts_sr.to(device)
+                        # 이미지 저장
+                        pil_sr = to_pil_image(ts_sr)
+                        try:
+                            pil_sr.save(path_sr + path_fold + path_train_img + "/" + name)
+                        except:
+                            os.makedirs(path_sr + path_fold + path_train_img)
+                            pil_sr.save(path_sr + path_fold + path_train_img + "/" + name)
 
-                    ignite_result = ignite_evaluator.run([[torch.unsqueeze(ts_sr, 0)
-                                                           ,torch.unsqueeze(ts_hr, 0)
-                                                           ]])
+                        # PSNR, SSIM 계산
+                        ts_hr = ts_hr.to(device)
+                        ts_sr = ts_sr.to(device)
 
-                    _psnr_train = ignite_result.metrics['psnr']
-                    _ssim_train = ignite_result.metrics['ssim']
-                    psnr_train.add_item(_psnr_train)
-                    ssim_train.add_item(_ssim_train)
+                        ignite_result = ignite_evaluator.run([[torch.unsqueeze(ts_sr, 0)
+                                                                  , torch.unsqueeze(ts_hr, 0)
+                                                               ]])
 
-                if batch % 30 == 0:
-                    loss = _loss_train.item()
-                    current = batch * len(i_batch_lr)
-                    print(f"loss: {loss}  [{current}/{size}]")
+                        _psnr_train = ignite_result.metrics['psnr']
+                        _ssim_train = ignite_result.metrics['ssim']
+                        psnr_train.add_item(_psnr_train)
+                        ssim_train.add_item(_ssim_train)
 
-            loss_train.update_batch()
-            psnr_train.update_batch()
-            ssim_train.update_batch()
+                    progress_train.set_postfix(loss=_loss_train.item(), psnr=_psnr_train, ssim=_ssim_train)
+
+                loss_train.update_batch()
+                psnr_train.update_batch()
+                ssim_train.update_batch()
 
         lr.add_item(scheduler.get_last_lr()[0])
         scheduler.step()
@@ -367,52 +368,57 @@ if __name__ == "__main__":
 
         # valid
         model.eval()
-        for i_dataloader in dataloader_valid:
-            i_batch_hr, i_batch_lr, i_batch_name = i_dataloader
-            i_batch_hr = i_batch_hr.to(device)
-            i_batch_lr = i_batch_lr.to(device)
+        with tqdm(dataloader_valid, unit="batch", ncols=120) as progress_valid:
+            for i_dataloader in dataloader_valid:
+                progress_valid.set_description(f"Vaild ")
 
-            with torch.no_grad():
-                i_batch_sr = model(i_batch_lr)
-                _loss_valid = criterion(i_batch_sr, i_batch_hr)
-                loss_valid.add_item(_loss_valid.item())
+                i_batch_hr, i_batch_lr, i_batch_name = i_dataloader
+                i_batch_hr = i_batch_hr.to(device)
+                i_batch_lr = i_batch_lr.to(device)
 
-                ts_hr = torch.clamp(i_batch_hr[0], min=0, max=1).to(device)
-                ts_sr = torch.clamp(i_batch_sr[0], min=0, max=1).to(device)    # B C H W
-                name = i_batch_name[0]
+                with torch.no_grad():
+                    i_batch_sr = model(i_batch_lr)
+                    _loss_valid = criterion(i_batch_sr, i_batch_hr)
+                    loss_valid.add_item(_loss_valid.item())
 
-                # 이미지 저장
-                pil_sr = to_pil_image(ts_sr)
-                try :
-                    pil_sr.save(path_sr + path_fold + path_valid_img + "/" + name)
-                except :
-                    os.makedirs(path_sr + path_fold + path_valid_img)
-                    pil_sr.save(path_sr + path_fold + path_valid_img + "/" + name)
+                    ts_hr = torch.clamp(i_batch_hr[0], min=0, max=1).to(device)
+                    ts_sr = torch.clamp(i_batch_sr[0], min=0, max=1).to(device)  # B C H W
+                    name = i_batch_name[0]
 
-                #PSNR, SSIM 계산
-                ts_hr = ts_hr.to(device)
-                ts_sr = ts_sr.to(device)
+                    # 이미지 저장
+                    pil_sr = to_pil_image(ts_sr)
+                    try:
+                        pil_sr.save(path_sr + path_fold + path_valid_img + "/" + name)
+                    except:
+                        os.makedirs(path_sr + path_fold + path_valid_img)
+                        pil_sr.save(path_sr + path_fold + path_valid_img + "/" + name)
 
-                ignite_result = ignite_evaluator.run([[torch.unsqueeze(ts_sr, 0)
-                                                    ,torch.unsqueeze(ts_hr, 0)
-                                                    ]])
+                    # PSNR, SSIM 계산
+                    ts_hr = ts_hr.to(device)
+                    ts_sr = ts_sr.to(device)
 
-                _psnr_valid = ignite_result.metrics['psnr']
-                _ssim_valid = ignite_result.metrics['ssim']
-                psnr_valid.add_item(_psnr_valid)
-                ssim_valid.add_item(_ssim_valid)
+                    ignite_result = ignite_evaluator.run([[torch.unsqueeze(ts_sr, 0)
+                                                              , torch.unsqueeze(ts_hr, 0)
+                                                           ]])
 
-            loss_valid.update_batch()
-            psnr_valid.update_batch()
-            ssim_valid.update_batch()
+                    _psnr_valid = ignite_result.metrics['psnr']
+                    _ssim_valid = ignite_result.metrics['ssim']
+                    psnr_valid.add_item(_psnr_valid)
+                    ssim_valid.add_item(_ssim_valid)
 
-        _lt = loss_train.update_epoch(is_return=True, path = path_log)
-        _pt = psnr_train.update_epoch(is_return=True, path = path_log)
-        _st = ssim_train.update_epoch(is_return=True, path = path_log)
-        _lv = loss_valid.update_epoch(is_return=True, path = path_log)
-        _pv = psnr_valid.update_epoch(is_return=True, path = path_log)
-        _sv = ssim_valid.update_epoch(is_return=True, path = path_log)
-        _lr = lr.update_epoch(is_return=True,  path = path_log)
+                    progress_valid.set_postfix(loss=_loss_valid.item(), psnr=_psnr_valid, ssim=_ssim_valid)
+
+                loss_valid.update_batch()
+                psnr_valid.update_batch()
+                ssim_valid.update_batch()
+
+        _lt = loss_train.update_epoch(is_return=True, path=path_log)
+        _pt = psnr_train.update_epoch(is_return=True, path=path_log)
+        _st = ssim_train.update_epoch(is_return=True, path=path_log)
+        _lv = loss_valid.update_epoch(is_return=True, path=path_log)
+        _pv = psnr_valid.update_epoch(is_return=True, path=path_log)
+        _sv = ssim_valid.update_epoch(is_return=True, path=path_log)
+        _lr = lr.update_epoch(is_return=True, path=path_log)
 
         lr_list.append(_lr)
         loss_train_list.append(_lt)
@@ -422,13 +428,13 @@ if __name__ == "__main__":
         psnr_valid_list.append(_pv)
         ssim_valid_list.append(_sv)
 
-        if i_epoch % 10 == 0 :
-            if i_epoch < 100 :
+        if i_epoch % 10 == 0:
+            if i_epoch < 100:
                 epoch_save = f"0{i_epoch}"
-            else :
+            else:
                 epoch_save = f"{i_epoch}"
 
-            try :
+            try:
                 torch.save({
                     'epoch': i_epoch,
                     'model_state_dict': model.state_dict(),
@@ -442,7 +448,7 @@ if __name__ == "__main__":
                     'psnr_valid': psnr_valid_list,
                     'ssim_valid': ssim_valid_list,
                 }, path_log + f"/checkpoint/epoch_{epoch_save}.pt")
-            except :
+            except:
                 os.makedirs(path_log + "/checkpoint")
                 torch.save({
                     'epoch': i_epoch,
@@ -457,9 +463,6 @@ if __name__ == "__main__":
                     'psnr_valid': psnr_valid_list,
                     'ssim_valid': ssim_valid_list,
                 }, path_log + f"/checkpoint/epoch_{epoch_save}.pt")
-
-        print("train : loss {}, psnr {}, ssim : {}".format(_lt, _pt, _st))
-        print("valid : loss {}, psnr {}, ssim : {}".format(_lv, _pv, _sv))
         print("------------------------------------------------------------------------")
 
     graph_loss(loss_train_list, loss_valid_list, save = path_log + f"/loss_{option_frag}.png",
