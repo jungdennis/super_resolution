@@ -21,7 +21,8 @@ from PIL import Image, ImageFilter
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt
-from tqdm import tqdm
+from tqdm import tqdmy
+
 from DLCs.super_resolution.model_bsrn import BSRN
 
 # random seed 고정

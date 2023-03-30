@@ -38,7 +38,7 @@ MODEL = args.model
 RESOLUTION = args.resolution
 SCALE_FACTOR = args.scale
 NOISE = args.noise
-SR = args.sr
+SR_MODEL = args.sr
 MEASURE_MODE = args.mode        # all or pick_1 or pick_2
 CSV = args.csv
 
@@ -56,11 +56,11 @@ elif RESOLUTION == "LR" :
     elif DATABASE == "Reg" :
         option_frag = f"LR_{SCALE_FACTOR}_{NOISE}_{MEASURE_MODE}_{MODEL}"
 elif RESOLUTION == "SR" :
-    path_log = f"C:/super_resolution/log/log_metric/graph_and_log/{DATABASE}/{MODEL}/SR_{MODEL}/"
+    path_log = f"C:/super_resolution/log/log_metric/graph_and_log/{DATABASE}/{MODEL}/SR_{SR_MODEL}/"
     if DATABASE == "SYSU" :
-        option_frag = f"SR_{SR}_{MODEL}"
+        option_frag = f"SR_{SR_MODEL}_{MODEL}"
     elif DATABASE == "Reg" :
-        option_frag = f"SR_{SR}_{MEASURE_MODE}_{MODEL}"
+        option_frag = f"SR_{SR_MODEL}_{MEASURE_MODE}_{MODEL}"
 
 dt_now = datetime.datetime.now()
 date = str(dt_now.year) + "-" + str(dt_now.month) + "-" + str(dt_now.day) + " " + str(dt_now.hour) + ":" + str(dt_now.minute)
@@ -109,7 +109,7 @@ if __name__ == "__main__":
     mean_impo = distance_diff.mean()
     std_impo = distance_diff.std()
 
-    metric_histogram(distance_same, distance_diff, density = True,
+    metric_histogram(distance_same, distance_diff, density = True, xlim = [0, 65],
                      title=f"Distribution of Distance ({DATABASE}_{option_frag})",
                      save_path = path_log + f"hist_{DATABASE}_{option_frag}.png")
     #

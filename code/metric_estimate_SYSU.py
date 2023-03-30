@@ -56,8 +56,8 @@ elif RESOLUTION == "LR" :
     path_log = f"C:/super_resolution/log/log_metric/graph_and_log/SYSU/{MODEL}/LR_{SCALE_FACTOR}_{NOISE}/"
     option_frag = f"LR_{SCALE_FACTOR}_{NOISE}_{MODEL}"
 elif RESOLUTION == "SR" :
-    path_img = f"C:/super_resolution/data/image_SYSU/SR_{MODEL}"
-    path_log = f"C:/super_resolution/log/log_metric/graph_and_log/SYSU/{MODEL}/SR_{MODEL}/"
+    path_img = f"C:/super_resolution/data/image_SYSU/SR_{SR_MODEL}"
+    path_log = f"C:/super_resolution/log/log_metric/graph_and_log/SYSU/{MODEL}/SR_{SR_MODEL}/"
     option_frag = f"SR_{SR_MODEL}_{MODEL}"
 
 path_a = "/A_set"
@@ -368,7 +368,7 @@ if __name__ == "__main__":
     mean_impo = distance_diff.mean()
     std_impo = distance_diff.std()
 
-    metric_histogram(distance_same, distance_diff, density = True,
+    metric_histogram(distance_same, distance_diff, density = True, xlim = [0, 65],
                      title=f"Distribution of Distance (SYSU_{option_frag})",
                      save_path = path_log + f"hist_SYSU_{option_frag}.png")
     # print(len(distance_same), len(distance_diff))

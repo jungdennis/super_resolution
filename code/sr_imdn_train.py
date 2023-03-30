@@ -190,6 +190,10 @@ if __name__ == "__main__":
                                                 step_size=50,
                                                 gamma=0.5)
 
+    from torchsummary import summary
+    summary(model, (3, 192, 192))
+    print(model)
+
     # Ignite를 활용한 PSNR, SSIM 계산을 위한 준비
     def ignite_eval_step(engine, batch):
         return batch

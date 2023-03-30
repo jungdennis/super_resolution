@@ -60,8 +60,8 @@ elif RESOLUTION == "LR" :
     path_log = f"C:/super_resolution/log/log_metric/graph_and_log/Reg/{MODEL}/LR_{SCALE_FACTOR}_{NOISE}/"
     option_frag = f"LR_{SCALE_FACTOR}_{NOISE}_{MEASURE_MODE}_{MODEL}"
 elif RESOLUTION == "SR" :
-    path_img = f"C:/super_resolution/data/image/SR_{MODEL}"
-    path_log = f"C:/super_resolution/log/log_metric/graph_and_log/Reg/{MODEL}/SR_{MODEL}/"
+    path_img = f"C:/super_resolution/data/image/SR_{SR_MODEL}"
+    path_log = f"C:/super_resolution/log/log_metric/graph_and_log/Reg/{MODEL}/SR_{SR_MODEL}/"
     option_frag = f"SR_{SR_MODEL}_{MEASURE_MODE}_{MODEL}"
 
 path_a = "/A_set"
@@ -207,7 +207,6 @@ if __name__ == "__main__":
     loss_mse = nn.MSELoss(reduction='sum')
     loss_mse.to(device)
 
-    print(model)
     '''
     Fold A
     '''

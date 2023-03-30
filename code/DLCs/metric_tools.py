@@ -1,15 +1,15 @@
 import os
 import numpy as np
 import matplotlib.pyplot as plt
-
+import math
 import torch
 
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 
 def metric_histogram(list_correct, list_wrong, xlim=None, density=False, title="Distribution of Distance", save_path = None):
     plt.clf()
-    plt.hist(list_correct, histtype="step", color="b", bins = int(max(list_correct)*2), density=density)
-    plt.hist(list_wrong, histtype="step", color="g", bins = int(max(list_wrong)*2), density=density)
+    plt.hist(list_correct, histtype="step", color="b", bins = int(math.ceil(max(list_correct)) * 2), density=density)
+    plt.hist(list_wrong, histtype="step", color="g", bins = int(math.ceil(max(list_wrong)) * 2), density=density)
     plt.title(title)
     plt.xlabel("Distance")
     if density is False :
@@ -21,9 +21,11 @@ def metric_histogram(list_correct, list_wrong, xlim=None, density=False, title="
     if xlim is not None:
         plt.xlim(xlim)
     else :
-        plt.xlim([0, 250])
+        plt.xlim([0, 45])
+        # plt.xlim([0, 250])
         # plt.xlim([min(list_correct), max(list_wrong)])
-    plt.ylim([0, 0.05])
+
+    # plt.ylim([0, 0.05])
 
     if save_path is not None :
         plt.savefig(save_path)
@@ -67,7 +69,7 @@ def calc_FAR_FRR(list_correct, list_wrong, range = None, save = None) :
             
     return threshold, FAR, FRR
 
-def calc_FAR_FRR_v2(list_genuine, list_imposter, range=None, save=None):
+def calc_FAR_FRR_v2(list_genuine, list_imposter, show_log = True, range=None, save=None):
     if range is None:
         threshold = np.arange(0, max(list_imposter) + 0.0001, 0.00001)
     else:
@@ -141,8 +143,10 @@ def calc_FAR_FRR_v2(list_genuine, list_imposter, range=None, save=None):
             except :
                 cnt_genu = 0
 
-
-        FAR.append(cnt_FA / total_FA)
+        try :
+            FAR.append(cnt_FA / total_FA)
+        except ZeroDivisionError :
+            FAR.append(1)
 
         if th == 0 :
             try :
@@ -158,16 +162,17 @@ def calc_FAR_FRR_v2(list_genuine, list_imposter, range=None, save=None):
             except :
                 cnt_impo = 0
 
+        try :
+            FRR.append(cnt_FR / total_FR)
+        except ZeroDivisionError :
+            FRR.append(0)
 
-
-        FRR.append(cnt_FR / total_FR)
-
-        if cnt % 10000 == 0 :
+        if show_log and cnt % 10000 == 0 :
             print(f"Distance {th} : FA {cnt_FA}, FR {cnt_FR}")
 
         cnt += 1
-
-    print(f"total : FA {total_FA}, FR {total_FR}")
+    if show_log :
+        print(f"total : FA {total_FA}, FR {total_FR}")
 
     if save is not None:
         torch.save({'threshold': threshold,
