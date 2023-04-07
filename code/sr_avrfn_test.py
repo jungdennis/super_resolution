@@ -20,7 +20,7 @@ from PIL import Image, ImageFilter
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt
-from DLCs.super_resolution.model_chasnet import ChaSNet
+from DLCs.super_resolution.model_avrfn import AVRFN
 
 # random seed 고정
 SEED = 485
@@ -37,7 +37,7 @@ _batch = 16
 _csv = True
 
 # Argparse Setting
-parser = argparse.ArgumentParser(description = "ChaSNet model을 이용해 Super Resolution을 진행합니다. (Test)")
+parser = argparse.ArgumentParser(description = "AVRFN model을 이용해 Super Resolution을 진행합니다. (Test)")
 
 parser.add_argument('--database', required = False, choices = ["Reg", "SYSU"], default = _database, help = "사용할 데이터베이스 입력 (Reg, SYSU)")
 parser.add_argument('--fold', required = False, choices = ["A", "B"], default = _fold, help = "학습을 진행할 fold 입력 (A, B)")
@@ -55,7 +55,7 @@ SCALE_FACTOR = args.scale
 NOISE = args.noise
 BATCH_SIZE = args.batch
 CSV = args.csv
-SR_MODEL = "ChaSNet"
+SR_MODEL = "AVRFN"
 
 # # 단일 코드로 돌릴 때의 옵션
 # CSV = _csv
@@ -165,7 +165,7 @@ if __name__ == "__main__":
     # 기본 설정 : device, scaler, model, loss, epoch, batch_size, random_seed, lr, optimizer, scheduler
     # train 코드의 그것을 그대로 배껴주세요
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    model = ChaSNet(upscale=4)
+    model = AVRFN(upscale=4, channels=1)
     model.to(device)
 
     criterion = torch.nn.L1Loss().to(device)

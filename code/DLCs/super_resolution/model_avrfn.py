@@ -3,6 +3,8 @@ import torch.nn as nn
 import torchvision.transforms as transforms
 from torchsummary import summary
 
+import sys
+
 class SOCA(nn.Module) :
     def __init__(self, filters, reduction = 1) :
         super(SOCA, self).__init__()
@@ -15,52 +17,66 @@ class SOCA(nn.Module) :
         )
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-    def normalizeCov(self, x, iterN) :
+    def normalizeCov(self, x, iterN, device) :
+        eps = 1e-5
         batch_size, channel = x.shape[0], x.shape[-1]
 
-        I3 = torch.eye(channel, channel).to(self.device)
-        I3 = I3.reshape((1, channel, channel)).to(self.device)
-        I3 = I3.repeat(batch_size, 1, 1).to(self.device)
-        I3 = 3 * I3.to(self.device)
+        I3 = torch.eye(channel, channel, device=device)
+        I3 = I3.reshape((1, channel, channel))
+        I3 = I3.repeat(batch_size, 1, 1)
+        I3 = 3 * I3
 
-        normA = (1/3) * torch.sum(torch.matmul(x, I3), dim=(1, 2)).to(self.device)
-        A = x / torch.reshape(normA, (batch_size, 1, 1)).to(self.device)
+        normA = (1/3) * torch.sum(torch.matmul(x, I3), dim=(1, 2))
+        A = x / (torch.reshape(normA, (batch_size, 1, 1)) + eps)
 
-        Y = torch.zeros((batch_size, channel, channel)).to(self.device)
+        Y = torch.zeros((batch_size, channel, channel), device=device)
 
-        Z = torch.eye(channel, channel).to(self.device)
-        Z = Z.reshape((1, channel, channel)).to(self.device)
-        Z = Z.repeat(batch_size, 1, 1).to(self.device)
+        Z = torch.eye(channel, channel, device=device)
+        Z = Z.reshape((1, channel, channel))
+        Z = Z.repeat(batch_size, 1, 1)
 
-        ZY = 0.5 * (I3 - A).to(self.device)
-        Y = torch.matmul(A, ZY).to(self.device)
-        Z = ZY.to(self.device)
+        ZY = 0.5 * (I3 - A)
+        Y = torch.matmul(A, ZY)
+        Z = ZY
 
         for i in range(1, iterN - 1) :
-            ZY = 0.5 * (I3 - torch.matmul(Z, Y)).to(self.device)
-            Y = torch.matmul(Y, ZY).to(self.device)
-            Z = torch.matmul(ZY, Z).to(self.device)
+            ZY = 0.5 * (I3 - torch.matmul(Z, Y))
+            Y = torch.matmul(Y, ZY)
+            Z = torch.matmul(ZY, Z)
 
-        ZY = 0.5 * torch.matmul(Y, I3 - torch.matmul(Z, Y)).to(self.device)
-        y = ZY * torch.sqrt(normA.view(batch_size, 1, 1)).to(self.device)
-        y = torch.mean(y, dim = 1).view(batch_size, channel, 1, 1).to(self.device)
+        ZY = 0.5 * torch.matmul(Y, I3 - torch.matmul(Z, Y))
+        y = ZY * torch.sqrt(normA.view(batch_size, 1, 1) + eps)
+        y = torch.mean(y, dim = 1).view(batch_size, channel, 1, 1)
 
         return y
 
     def forward(self, x):
+
+
         skip = self.identity(x)
 
-        batch_size, c, h, w = x.shape[0], x.shape[1], x.shape[2], x.shape[3]
-        M = h * w
-        x = x.view(batch_size, c, M).to(self.device)
-        Minv = torch.tensor(1 / M, dtype=torch.float32).to(self.device)
-        I_hat = Minv * (torch.eye(M).to(self.device) - Minv * torch.ones((M, M)).to(self.device))
-        cov = torch.matmul(torch.matmul(x, I_hat), x.transpose(1, 2)).to(self.device)
+        batch_size, c, h, w = x.shape#[0], x.shape[1], x.shape[2], x.shape[3]
 
-        y_cov = self.normalizeCov(cov, 5).to(self.device)
-        y_cov = self.conv_du(y_cov).to(self.device)
+
+        M = h * w
+        x = x.view(batch_size, c, M)
+
+        #Minv = torch.tensor(1, dtype=torch.float32).to(self.device) / M
+        Minv = 1 / M
+        _eye_M = torch.eye(M, device=self.device)
+        _ones_M = torch.ones((M, M), device=self.device)
+
+        I_hat = Minv * (_eye_M - Minv * _ones_M)
+
+        cov = torch.matmul(torch.matmul(x, I_hat), x.transpose(1, 2))
+
+        y_cov = self.normalizeCov(cov, 5, self.device)
+        y_cov = self.conv_du(y_cov)
 
         return y_cov * skip
+
+        #I_hat = Minv * _eye_M - Minv * Minv * _ones_M
+        #sys.exit(-9)
 
 # RCAB_dense_dilated_SOCA
 class ResBlock(nn.Module):

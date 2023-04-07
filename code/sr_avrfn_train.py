@@ -33,7 +33,7 @@ _database = "Reg"
 _fold = "A"
 _scale = 4
 _noise = 30
-_epoch = 1
+_epoch = 2
 _batch = 30
 _csv = True
 _load = False
@@ -187,7 +187,7 @@ if __name__ == "__main__":
     # 기본 설정 : device, scaler, model, loss, epoch, batch_size, random_seed, lr, optimizer, scheduler
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     amp_scaler = torch.cuda.amp.GradScaler(enabled=True)
-    model = AVRFN(upscale=4, channels=3)
+    model = AVRFN(upscale=4, channels=1)
     model.to(device)
 
     criterion = torch.nn.MSELoss().to(device)
@@ -267,13 +267,13 @@ if __name__ == "__main__":
     dataloader_train = DataLoader_multi_worker_FIX(dataset=dataset_train,
                                                    batch_size=BATCH_SIZE,
                                                    shuffle=True,
-                                                   num_workers=1,
+                                                   num_workers=2,
                                                    prefetch_factor=2,
                                                    drop_last=True)
     dataloader_valid = DataLoader_multi_worker_FIX(dataset=dataset_valid,
                                                    batch_size=1,
                                                    shuffle=True,
-                                                   num_workers=1,
+                                                   num_workers=2,
                                                    prefetch_factor=2,
                                                    drop_last=False)
     '''
