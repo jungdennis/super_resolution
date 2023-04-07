@@ -6,7 +6,7 @@ from timm.models.registry import register_model
 
 
 class Block(nn.Module):
-    r""" ConvNeXt Block. There are two equivalent implementations:
+    """ ConvNeXt Block. There are two equivalent implementations:
     (1) DwConv -> LayerNorm (channels_first) -> 1x1 Conv -> GELU -> 1x1 Conv; all in (N, C, H, W)
     (2) DwConv -> Permute to (N, H, W, C); LayerNorm (channels_last) -> Linear -> GELU -> Linear; Permute back
     We use (2) as we find it slightly faster in PyTorch

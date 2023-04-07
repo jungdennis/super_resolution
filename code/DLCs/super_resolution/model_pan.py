@@ -34,11 +34,11 @@
 # scheduler = CosineAnnealingLR_Restart(optimizer = optimizer
 #                                      ,T_period  = [250000, 250000, 250000, 250000]    # T_period used before next restart.
 #                                                                                       # cosine T_period 옵션. restart 전까지만 유효. restarts 보다 1개 많은 element 필요.
-#                                      ,restarts  = [250000, 500000, 750000]            # make cosine step to zero -> make LR init value
+#                                      ,restarts  = [250000, 500000, 750000]            # make cosine step to zero -> make LR_4_noise10 init value
 #                                                                                       # cos 주기 초기화 iter 값. T_period 보다 1개 적은 element 필요.
-#                                      ,weights   = [1, 1, 1]                           # restart init LR multiplier. >1 will make larger initial LR.
-#                                                                                       # cos 주기 초기화 시, 시작 LR 배율값. >1 값 사용시, optimizer 설정값보다 큰 LR로 init
-#                                      ,eta_min   = 1e-7                                # minimum LR
+#                                      ,weights   = [1, 1, 1]                           # restart init LR_4_noise10 multiplier. >1 will make larger initial LR_4_noise10.
+#                                                                                       # cos 주기 초기화 시, 시작 LR_4_noise10 배율값. >1 값 사용시, optimizer 설정값보다 큰 LR로 init
+#                                      ,eta_min   = 1e-7                                # minimum LR_4_noise10
 #                                                                                       # cosine 그래프 최소값.
 #                                      )
 #

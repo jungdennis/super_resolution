@@ -460,7 +460,7 @@ class MPRNet(nn.Module):
 #사용됨
 #사용예시
 '''
-#input_ : LR , target : Original , restored : SR
+#input_ : LR_4_noise10 , target : Original , restored : SR
 criterion = CharbonnierLoss()
     ...
 restored = model_restoration(input_)

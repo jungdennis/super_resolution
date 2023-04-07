@@ -353,7 +353,7 @@ class Network(nn.Module):
 #<<<=============================================================================================== solver.py
 # https://github.com/dvlab-research/Simple-SR/blob/master/utils/solver.py
 
-# LR scheduler 고치기
+# LR_4_noise10 scheduler 고치기
 
 class CosineAnnealingLR_warmup(_LRScheduler):
     def __init__(self
@@ -423,4 +423,4 @@ class CharbonnierLoss(nn.Module):
 
 #>>>=============================================================================================== loss.py
 
-print("EOF: model_lapar_a.py")
+# print("EOF: model_lapar_a.py")

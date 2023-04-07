@@ -40,7 +40,7 @@
 #       model_g  = Generator()
 #       model_d = Discriminator() #check input image size!
 #       
-#       tensor_g_hypo    = model_g(tensor_x)      #LR input
+#       tensor_g_hypo    = model_g(tensor_x)      #LR_4_noise10 input
 #       tensor_d_hypo_hr = model_d(tensor_y)      #Original input
 #       tensor_d_hypo_sr = model_d(tensor_g_hypo) #SR input
 #       
