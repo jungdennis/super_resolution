@@ -35,6 +35,7 @@ _scale = 4
 _noise = 30
 _epoch = 2
 _batch = 30
+_channel = 1
 _csv = True
 _load = False
 
@@ -47,8 +48,10 @@ parser.add_argument('--scale', required = False, type = int, default = _scale, h
 parser.add_argument('--noise', required = False, type = int, default = _noise, help = "LR 이미지 noise의 sigma 값 입력")
 parser.add_argument('--epoch', required = False, type = int, default = _epoch, help = "학습을 진행할 epoch 수 입력")
 parser.add_argument('--batch', required = False, type = int, default = _batch, help = "학습을 진행할 batch size 입력")
-parser.add_argument("--csv", required = False, action = 'store_true', help = "csv파일에 기록 여부 선택 (True, False)")
-parser.add_argument("--load", required = False, action = 'store_true', help = "이전 학습 기록 load 여부 선택 (True, False)")
+parser.add_argument('--channel', required = False, type = int, choices=[1, 3], default = _channel, help = "학습을 진행할 image의 channel 수 입력 (1, 3)")
+parser.add_argument("--csv", required = False, action = 'store_true', help = "csv파일에 기록 여부 선택")
+parser.add_argument("--load", required = False, action = 'store_true', help = "이전 학습 기록 load 여부 선택")
+parser.add_argument("--server", required = False, action = 'store_true', help = "neuron 서버로 코드 실행 여부 선택")
 
 args = parser.parse_args()
 
@@ -59,9 +62,11 @@ SCALE_FACTOR = args.scale
 NOISE = args.noise
 EPOCH = args.epoch
 BATCH_SIZE = args.batch
+CHANNEL = args.channel
 CSV = args.csv
 LOAD = args.load
-SR_MODEL = "AVRFN"
+SR_MODEL = "AVRFN" if args.channel == 1 else "AVRFN_3CH"
+DEVICE = "SERVER" if args.server else "LOCAL"
 
 # # 단일 코드로 돌릴 때의 옵션
 # CSV = _csv
@@ -69,8 +74,13 @@ SR_MODEL = "AVRFN"
 # LOAD = _load
 
 # Datapath
+if DEVICE == "SERVER" :
+    path_device = "/scratch/hpc111a06/syjung/super_resolution"
+elif DEVICE == "LOCAL" :
+    path_device= "C:/super_resolution"
+
 if DATABASE == "Reg" :
-    path_img = "C:/super_resolution/data/image/"
+    path_img = path_device + "/data/image/"
 elif DATABASE == "SYSU" :
     path_img = "C:/super_resolution/data/image_SYSU/"
 
@@ -84,7 +94,7 @@ path_train_img = "/train/images"
 path_valid_img = "/val/images"
 path_test_img = "/test/images"
 
-path_log = f"C:/super_resolution/log/log_sr/{SR_MODEL}/{DATABASE}/{FOLD}_set"
+path_log = path_device + f"/log/log_sr/{SR_MODEL}/{DATABASE}/{FOLD}_set"
 
 option_frag = f"{SR_MODEL}_{DATABASE}_fold {FOLD}"
 
@@ -187,12 +197,15 @@ if __name__ == "__main__":
     # 기본 설정 : device, scaler, model, loss, epoch, batch_size, random_seed, lr, optimizer, scheduler
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     amp_scaler = torch.cuda.amp.GradScaler(enabled=True)
-    model = AVRFN(upscale=4, channels=1)
+    model = AVRFN(upscale=4, channels=CHANNEL)
     model.to(device)
 
     criterion = torch.nn.MSELoss().to(device)
 
-    LR = 2e-5
+    if CHANNEL == 1:
+        LR = 2e-6
+    elif CHANNEL == 3:
+        LR = 2e-5
     optimizer = torch.optim.Adam(model.parameters(), lr=LR)
     scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=LR_func)
 

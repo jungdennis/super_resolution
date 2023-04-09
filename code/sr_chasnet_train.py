@@ -48,8 +48,9 @@ parser.add_argument('--scale', required = False, type = int, default = _scale, h
 parser.add_argument('--noise', required = False, type = int, default = _noise, help = "LR 이미지 noise의 sigma 값 입력")
 parser.add_argument('--epoch', required = False, type = int, default = _epoch, help = "학습을 진행할 epoch 수 입력")
 parser.add_argument('--batch', required = False, type = int, default = _batch, help = "학습을 진행할 batch size 입력")
-parser.add_argument("--csv", required = False, action = 'store_true', help = "csv파일에 기록 여부 선택 (True, False)")
-parser.add_argument("--load", required = False, action = 'store_true', help = "이전 학습 기록 load 여부 선택 (True, False)")
+parser.add_argument("--csv", required = False, action = 'store_true', help = "csv파일에 기록 여부 선택")
+parser.add_argument("--load", required = False, action = 'store_true', help = "이전 학습 기록 load 여부 선택")
+parser.add_argument("--server", required = False, action = 'store_true', help = "neuron 서버로 코드 실행 여부 선택")
 
 args = parser.parse_args()
 
@@ -63,6 +64,7 @@ BATCH_SIZE = args.batch
 CSV = args.csv
 LOAD = args.load
 SR_MODEL = "ChaSNet"
+DEVICE = "SERVER" if args.server else "LOCAL"
 
 # # 단일 코드로 돌릴 때의 옵션
 # CSV = _csv
@@ -70,8 +72,13 @@ SR_MODEL = "ChaSNet"
 # LOAD = _load
 
 # Datapath
+if DEVICE == "SERVER" :
+    path_device = "/scratch/hpc111a06/syjung/super_resolution"
+elif DEVICE == "LOCAL" :
+    path_device= "C:/super_resolution"
+
 if DATABASE == "Reg" :
-    path_img = "C:/super_resolution/data/image/"
+    path_img = path_device + "/data/image/"
 elif DATABASE == "SYSU" :
     path_img = "C:/super_resolution/data/image_SYSU/"
 
@@ -85,7 +92,7 @@ path_train_img = "/train/images"
 path_valid_img = "/val/images"
 path_test_img = "/test/images"
 
-path_log = f"C:/super_resolution/log/log_sr/{SR_MODEL}/{DATABASE}/{FOLD}_set"
+path_log = path_device + f"/log/log_sr/{SR_MODEL}/{DATABASE}/{FOLD}_set"
 
 option_frag = f"{SR_MODEL}_{DATABASE}_fold {FOLD}"
 

@@ -12,7 +12,6 @@ from torchvision.transforms.functional import to_pil_image
 from DLCs.data_tools import pil_marginer_v3, pil_augm_lite, imshow_pil
 from DLCs.mp_dataloader import DataLoader_multi_worker_FIX
 from DLCs.data_record import RecordBox
-from DLCs.contextual_loss import *
 
 import torch
 
@@ -34,6 +33,7 @@ _fold = "A"
 _scale = 4
 _noise = 30
 _batch = 16
+_channel = 1
 _csv = True
 
 # Argparse Setting
@@ -42,9 +42,10 @@ parser = argparse.ArgumentParser(description = "AVRFN model을 이용해 Super R
 parser.add_argument('--database', required = False, choices = ["Reg", "SYSU"], default = _database, help = "사용할 데이터베이스 입력 (Reg, SYSU)")
 parser.add_argument('--fold', required = False, choices = ["A", "B"], default = _fold, help = "학습을 진행할 fold 입력 (A, B)")
 parser.add_argument('--scale', required = False, type = int, default = _scale, help = "LR 이미지의 Scale Factor 입력")
-parser.add_argument('--batch', required = False, type = int, default = _batch, help = "학습을 진행할 batch size 입력")
 parser.add_argument('--noise', required = False, type = int, default = _noise, help = "LR 이미지 noise의 sigma 값 입력")
-parser.add_argument("--csv", required = False, action='store_true', help = "csv파일에 기록 여부 선택 (True, False)")
+parser.add_argument('--channel', required = False, type = int, choices=[1, 3], default = _channel, help = "학습을 진행할 image의 channel 수 입력 (1, 3)")
+parser.add_argument("--csv", required = False, action='store_true', help = "csv파일에 기록 여부 선택")
+parser.add_argument("--server", required = False, action = 'store_true', help = "neuron 서버로 코드 실행 여부 선택")
 
 args = parser.parse_args()
 
@@ -53,16 +54,22 @@ DATABASE = args.database        # Reg or SYSU
 FOLD = args.fold
 SCALE_FACTOR = args.scale
 NOISE = args.noise
-BATCH_SIZE = args.batch
+CHANNEL = args.channel
 CSV = args.csv
-SR_MODEL = "AVRFN"
+SR_MODEL = "AVRFN" if args.channel == 1 else "AVRFN_3CH"
+DEVICE = "SERVER" if args.server else "LOCAL"
 
 # # 단일 코드로 돌릴 때의 옵션
 # CSV = _csv
 
 # Datapath
+if DEVICE == "SERVER" :
+    path_device = "/scratch/hpc111a06/syjung/super_resolution"
+elif DEVICE == "LOCAL" :
+    path_device= "C:/super_resolution"
+
 if DATABASE == "Reg" :
-    path_img = "C:/super_resolution/data/image/"
+    path_img = path_device + "/data/image/"
 elif DATABASE == "SYSU" :
     path_img = "C:/super_resolution/data/image_SYSU/"
 
@@ -76,7 +83,7 @@ path_train_img = "/train/images"
 path_valid_img = "/val/images"
 path_test_img = "/test/images"
 
-path_log = f"C:/super_resolution/log/log_sr/{SR_MODEL}/{DATABASE}/{FOLD}_set"
+path_log = path_device + f"/log/log_sr/{SR_MODEL}/{DATABASE}/{FOLD}_set"
 
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 
