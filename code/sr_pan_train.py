@@ -20,7 +20,6 @@ from PIL import Image, ImageFilter
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt
-from tqdm import tqdm
 from DLCs.super_resolution.model_pan import PAN
 from DLCs.super_resolution.model_lapar_a import CosineAnnealingLR_warmup
 
@@ -51,6 +50,7 @@ parser.add_argument('--epoch', required = False, type = int, default = _epoch, h
 parser.add_argument('--batch', required = False, type = int, default = _batch, help = "학습을 진행할 batch size 입력")
 parser.add_argument("--csv", required = False, action = 'store_true', help = "csv파일에 기록 여부 선택 (True, False)")
 parser.add_argument("--load", required = False, action = 'store_true', help = "이전 학습 기록 load 여부 선택 (True, False)")
+parser.add_argument("--server", required = False, action = 'store_true', help = "neuron 서버로 코드 실행 여부 선택")
 
 args = parser.parse_args()
 
@@ -64,6 +64,7 @@ BATCH_SIZE = args.batch
 CSV = args.csv
 LOAD = args.load
 SR_MODEL = "PAN"
+DEVICE = "SERVER" if args.server else "LOCAL"
 
 # # 단일 코드로 돌릴 때의 옵션
 # CSV = _csv
@@ -71,8 +72,13 @@ SR_MODEL = "PAN"
 # LOAD = _load
 
 # Datapath
+if DEVICE == "SERVER" :
+    path_device = "/scratch/hpc111a06/syjung/super_resolution"
+elif DEVICE == "LOCAL" :
+    path_device= "C:/super_resolution"
+
 if DATABASE == "Reg" :
-    path_img = "C:/super_resolution/data/image/"
+    path_img = path_device + "/data/image/"
 elif DATABASE == "SYSU" :
     path_img = "C:/super_resolution/data/image_SYSU/"
 
@@ -86,7 +92,7 @@ path_train_img = "/train/images"
 path_valid_img = "/val/images"
 path_test_img = "/test/images"
 
-path_log = f"C:/super_resolution/log/log_sr/{SR_MODEL}/{DATABASE}/{FOLD}_set"
+path_log = path_device + f"/log/log_sr/{SR_MODEL}/{DATABASE}/{FOLD}_set"
 
 option_frag = f"{SR_MODEL}_{DATABASE}_fold {FOLD}"
 
@@ -313,89 +319,36 @@ if __name__ == "__main__":
         # train
         optimizer.zero_grad()
         model.train()
-        with tqdm(dataloader_train, unit="batch", ncols=120) as progress_train:
-            for batch, i_dataloader in enumerate(dataloader_train):
-                progress_train.set_description(f"Train ")
+        for batch, i_dataloader in enumerate(dataloader_train):
+            i_batch_hr, i_batch_lr, i_batch_name = i_dataloader
+            i_batch_hr = i_batch_hr.to(device)
+            i_batch_lr = i_batch_lr.to(device)
 
-                i_batch_hr, i_batch_lr, i_batch_name = i_dataloader
-                i_batch_hr = i_batch_hr.to(device)
-                i_batch_lr = i_batch_lr.to(device)
+            i_batch_lr = i_batch_lr.requires_grad_(True)
 
-                i_batch_lr = i_batch_lr.requires_grad_(True)
+            i_batch_sr = model(i_batch_lr)
 
-                i_batch_sr = model(i_batch_lr)
+            _loss_train = criterion(i_batch_sr, i_batch_hr)
+            loss_train.add_item(_loss_train.item())
 
-                _loss_train = criterion(i_batch_sr, i_batch_hr)
-                loss_train.add_item(_loss_train.item())
+            amp_scaler.scale(_loss_train).backward(retain_graph=False)
+            amp_scaler.step(optimizer)
+            amp_scaler.update()
+            optimizer.zero_grad()
 
-                amp_scaler.scale(_loss_train).backward(retain_graph=False)
-                amp_scaler.step(optimizer)
-                amp_scaler.update()
-                optimizer.zero_grad()
-
-                with torch.no_grad():
-                    for i_batch in range(BATCH_SIZE):
-                        ts_hr = torch.clamp(i_batch_hr[i_batch], min=0, max=1).to(device)
-                        ts_sr = torch.clamp(i_batch_sr[i_batch], min=0, max=1).to(device)  # B C H W
-                        name = i_batch_name[i_batch]
-
-                        # 이미지 저장
-                        pil_sr = to_pil_image(ts_sr)
-                        try:
-                            pil_sr.save(path_sr + path_fold + path_train_img + "/" + name)
-                        except:
-                            os.makedirs(path_sr + path_fold + path_train_img)
-                            pil_sr.save(path_sr + path_fold + path_train_img + "/" + name)
-
-                        # PSNR, SSIM 계산
-                        ts_hr = ts_hr.to(device)
-                        ts_sr = ts_sr.to(device)
-
-                        ignite_result = ignite_evaluator.run([[torch.unsqueeze(ts_sr, 0)
-                                                                  , torch.unsqueeze(ts_hr, 0)
-                                                               ]])
-
-                        _psnr_train = ignite_result.metrics['psnr']
-                        _ssim_train = ignite_result.metrics['ssim']
-                        psnr_train.add_item(_psnr_train)
-                        ssim_train.add_item(_ssim_train)
-
-                    progress_train.set_postfix(loss=_loss_train.item(), psnr=_psnr_train, ssim=_ssim_train)
-
-                loss_train.update_batch()
-                psnr_train.update_batch()
-                ssim_train.update_batch()
-
-        lr.add_item(scheduler.get_last_lr()[0])
-        scheduler.step()
-        lr.update_batch()
-
-        # valid
-        model.eval()
-        with tqdm(dataloader_valid, unit="batch", ncols=120) as progress_valid:
-            for i_dataloader in dataloader_valid:
-                progress_valid.set_description(f"Vaild ")
-
-                i_batch_hr, i_batch_lr, i_batch_name = i_dataloader
-                i_batch_hr = i_batch_hr.to(device)
-                i_batch_lr = i_batch_lr.to(device)
-
-                with torch.no_grad():
-                    i_batch_sr = model(i_batch_lr)
-                    _loss_valid = criterion(i_batch_sr, i_batch_hr)
-                    loss_valid.add_item(_loss_valid.item())
-
-                    ts_hr = torch.clamp(i_batch_hr[0], min=0, max=1).to(device)
-                    ts_sr = torch.clamp(i_batch_sr[0], min=0, max=1).to(device)  # B C H W
-                    name = i_batch_name[0]
+            with torch.no_grad():
+                for i_batch in range(BATCH_SIZE):
+                    ts_hr = torch.clamp(i_batch_hr[i_batch], min=0, max=1).to(device)
+                    ts_sr = torch.clamp(i_batch_sr[i_batch], min=0, max=1).to(device)  # B C H W
+                    name = i_batch_name[i_batch]
 
                     # 이미지 저장
                     pil_sr = to_pil_image(ts_sr)
                     try:
-                        pil_sr.save(path_sr + path_fold + path_valid_img + "/" + name)
+                        pil_sr.save(path_sr + path_fold + path_train_img + "/" + name)
                     except:
-                        os.makedirs(path_sr + path_fold + path_valid_img)
-                        pil_sr.save(path_sr + path_fold + path_valid_img + "/" + name)
+                        os.makedirs(path_sr + path_fold + path_train_img)
+                        pil_sr.save(path_sr + path_fold + path_train_img + "/" + name)
 
                     # PSNR, SSIM 계산
                     ts_hr = ts_hr.to(device)
@@ -405,16 +358,64 @@ if __name__ == "__main__":
                                                               , torch.unsqueeze(ts_hr, 0)
                                                            ]])
 
-                    _psnr_valid = ignite_result.metrics['psnr']
-                    _ssim_valid = ignite_result.metrics['ssim']
-                    psnr_valid.add_item(_psnr_valid)
-                    ssim_valid.add_item(_ssim_valid)
+                    _psnr_train = ignite_result.metrics['psnr']
+                    _ssim_train = ignite_result.metrics['ssim']
+                    psnr_train.add_item(_psnr_train)
+                    ssim_train.add_item(_ssim_train)
 
-                    progress_valid.set_postfix(loss=_loss_valid.item(), psnr=_psnr_valid, ssim=_ssim_valid)
+            loss_train.update_batch()
+            psnr_train.update_batch()
+            ssim_train.update_batch()
 
-                loss_valid.update_batch()
-                psnr_valid.update_batch()
-                ssim_valid.update_batch()
+            if batch % 30 == 0:
+                loss = _loss_train
+                current = batch * len(i_batch_lr)
+                print(f"loss : {loss} [{current}/{size}]")
+
+        lr.add_item(scheduler.get_last_lr()[0])
+        scheduler.step()
+        lr.update_batch()
+
+        # valid
+        model.eval()
+        for i_dataloader in dataloader_valid:
+            i_batch_hr, i_batch_lr, i_batch_name = i_dataloader
+            i_batch_hr = i_batch_hr.to(device)
+            i_batch_lr = i_batch_lr.to(device)
+
+            with torch.no_grad():
+                i_batch_sr = model(i_batch_lr)
+                _loss_valid = criterion(i_batch_sr, i_batch_hr)
+                loss_valid.add_item(_loss_valid.item())
+
+                ts_hr = torch.clamp(i_batch_hr[0], min=0, max=1).to(device)
+                ts_sr = torch.clamp(i_batch_sr[0], min=0, max=1).to(device)  # B C H W
+                name = i_batch_name[0]
+
+                # 이미지 저장
+                pil_sr = to_pil_image(ts_sr)
+                try:
+                    pil_sr.save(path_sr + path_fold + path_valid_img + "/" + name)
+                except:
+                    os.makedirs(path_sr + path_fold + path_valid_img)
+                    pil_sr.save(path_sr + path_fold + path_valid_img + "/" + name)
+
+                # PSNR, SSIM 계산
+                ts_hr = ts_hr.to(device)
+                ts_sr = ts_sr.to(device)
+
+                ignite_result = ignite_evaluator.run([[torch.unsqueeze(ts_sr, 0)
+                                                          , torch.unsqueeze(ts_hr, 0)
+                                                       ]])
+
+                _psnr_valid = ignite_result.metrics['psnr']
+                _ssim_valid = ignite_result.metrics['ssim']
+                psnr_valid.add_item(_psnr_valid)
+                ssim_valid.add_item(_ssim_valid)
+
+            loss_valid.update_batch()
+            psnr_valid.update_batch()
+            ssim_valid.update_batch()
 
         _lt = loss_train.update_epoch(is_return=True, path=path_log)
         _pt = psnr_train.update_epoch(is_return=True, path=path_log)
@@ -431,6 +432,9 @@ if __name__ == "__main__":
         loss_valid_list.append(_lv)
         psnr_valid_list.append(_pv)
         ssim_valid_list.append(_sv)
+
+        print("train : loss {}, psnr {}, ssim : {}".format(_lt, _pt, _st))
+        print("valid : loss {}, psnr {}, ssim : {}".format(_lv, _pv, _sv))
 
         if i_epoch % 10 == 0:
             if i_epoch < 100:

@@ -19,7 +19,6 @@ from PIL import Image, ImageFilter
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt
-from tqdm import tqdm
 from DLCs.super_resolution.model_esrt import ESRT
 
 # random seed 고정
@@ -42,9 +41,9 @@ parser = argparse.ArgumentParser(description = "ESRT model을 이용해 Super Re
 parser.add_argument('--database', required = False, choices = ["Reg", "SYSU"], default = _database, help = "사용할 데이터베이스 입력 (Reg, SYSU)")
 parser.add_argument('--fold', required = False, choices = ["A", "B"], default = _fold, help = "학습을 진행할 fold 입력 (A, B)")
 parser.add_argument('--scale', required = False, type = int, default = _scale, help = "LR 이미지의 Scale Factor 입력")
-parser.add_argument('--batch', required = False, type = int, default = _batch, help = "학습을 진행할 batch size 입력")
 parser.add_argument('--noise', required = False, type = int, default = _noise, help = "LR 이미지 noise의 sigma 값 입력")
 parser.add_argument("--csv", required = False, action='store_true', help = "csv파일에 기록 여부 선택 (True, False)")
+parser.add_argument("--server", required = False, action = 'store_true', help = "neuron 서버로 코드 실행 여부 선택")
 
 args = parser.parse_args()
 
@@ -56,13 +55,19 @@ NOISE = args.noise
 BATCH_SIZE = args.batch
 CSV = args.csv
 SR_MODEL = "ESRT"
+DEVICE = "SERVER" if args.server else "LOCAL"
 
 # # 단일 코드로 돌릴 때의 옵션
 # CSV = _csv
 
 # Datapath
+if DEVICE == "SERVER" :
+    path_device = "/scratch/hpc111a06/syjung/super_resolution"
+elif DEVICE == "LOCAL" :
+    path_device= "C:/super_resolution"
+
 if DATABASE == "Reg" :
-    path_img = "C:/super_resolution/data/image/"
+    path_img = path_device + "/data/image/"
 elif DATABASE == "SYSU" :
     path_img = "C:/super_resolution/data/image_SYSU/"
 
@@ -76,7 +81,7 @@ path_train_img = "/train/images"
 path_valid_img = "/val/images"
 path_test_img = "/test/images"
 
-path_log = f"C:/super_resolution/log/log_sr/{SR_MODEL}/{DATABASE}/{FOLD}_set"
+path_log = path_device + f"/log/log_sr/{SR_MODEL}/{DATABASE}/{FOLD}_set"
 
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 
@@ -204,47 +209,44 @@ if __name__ == "__main__":
 
     # test
     model.eval()
-    with tqdm(dataloader_test, unit="batch", ncols=120) as progress_test:
-        for i_dataloader in dataloader_test:
-            progress_test.set_description("Test ")
+    for i_dataloader in dataloader_test:
+        i_batch_hr, i_batch_lr, i_batch_name = i_dataloader
+        i_batch_hr = i_batch_hr.to(device)
+        i_batch_lr = i_batch_lr.to(device)
 
-            i_batch_hr, i_batch_lr, i_batch_name = i_dataloader
-            i_batch_hr = i_batch_hr.to(device)
-            i_batch_lr = i_batch_lr.to(device)
+        with torch.no_grad():
+            i_batch_sr = model(i_batch_lr)
+            _loss_test = criterion(i_batch_sr, i_batch_hr)
+            loss_test.add_item(_loss_test.item())
 
-            with torch.no_grad():
-                i_batch_sr = model(i_batch_lr)
-                _loss_test = criterion(i_batch_sr, i_batch_hr)
-                loss_test.add_item(_loss_test.item())
+            ts_hr = torch.clamp(i_batch_hr[0], min=0, max=1).to(device)
+            ts_sr = torch.clamp(i_batch_sr[0], min=0, max=1).to(device)  # B C H W
+            name = i_batch_name[0]
 
-                ts_hr = torch.clamp(i_batch_hr[0], min=0, max=1).to(device)
-                ts_sr = torch.clamp(i_batch_sr[0], min=0, max=1).to(device)  # B C H W
-                name = i_batch_name[0]
+            # 이미지 저장
+            pil_sr = to_pil_image(ts_sr)
+            try:
+                pil_sr.save(path_sr + path_fold + path_test_img + "/" + name)
+            except:
+                os.makedirs(path_sr + path_fold + path_test_img)
+                pil_sr.save(path_sr + path_fold + path_test_img + "/" + name)
 
-                # 이미지 저장
-                pil_sr = to_pil_image(ts_sr)
-                try:
-                    pil_sr.save(path_sr + path_fold + path_test_img + "/" + name)
-                except:
-                    os.makedirs(path_sr + path_fold + path_test_img)
-                    pil_sr.save(path_sr + path_fold + path_test_img + "/" + name)
+            # PSNR, SSIM 계산
+            ts_hr = ts_hr.to(device)
+            ts_sr = ts_sr.to(device)
 
-                # PSNR, SSIM 계산
-                ts_hr = ts_hr.to(device)
-                ts_sr = ts_sr.to(device)
+            ignite_result = ignite_evaluator.run([[torch.unsqueeze(ts_sr, 0),
+                                                   torch.unsqueeze(ts_hr, 0)
+                                                   ]])
 
-                ignite_result = ignite_evaluator.run([[torch.unsqueeze(ts_sr, 0),
-                                                       torch.unsqueeze(ts_hr, 0)
-                                                       ]])
+            _psnr_test = ignite_result.metrics['psnr']
+            _ssim_test = ignite_result.metrics['ssim']
+            psnr_test.add_item(_psnr_test)
+            ssim_test.add_item(_ssim_test)
 
-                _psnr_test = ignite_result.metrics['psnr']
-                _ssim_test = ignite_result.metrics['ssim']
-                psnr_test.add_item(_psnr_test)
-                ssim_test.add_item(_ssim_test)
-
-            loss_test.update_batch()
-            psnr_test.update_batch()
-            ssim_test.update_batch()
+        loss_test.update_batch()
+        psnr_test.update_batch()
+        ssim_test.update_batch()
 
     _lte = loss_test.update_epoch(is_return=True, path=path_log)
     _pte = psnr_test.update_epoch(is_return=True, path=path_log)

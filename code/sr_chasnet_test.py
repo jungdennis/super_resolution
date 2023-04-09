@@ -43,7 +43,7 @@ parser.add_argument('--fold', required = False, choices = ["A", "B"], default = 
 parser.add_argument('--scale', required = False, type = int, default = _scale, help = "LR 이미지의 Scale Factor 입력")
 parser.add_argument('--noise', required = False, type = int, default = _noise, help = "LR 이미지 noise의 sigma 값 입력")
 parser.add_argument("--csv", required = False, action='store_true', help = "csv파일에 기록 여부 선택")
-parser.add_argument("--neuron", required = False, action = 'store_true', help = "neuron 서버로 코드 실행 여부 선택")
+parser.add_argument("--server", required = False, action = 'store_true', help = "neuron 서버로 코드 실행 여부 선택")
 
 args = parser.parse_args()
 

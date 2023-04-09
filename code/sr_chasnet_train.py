@@ -441,7 +441,6 @@ if __name__ == "__main__":
 
         print("train : loss {}, psnr {}, ssim : {}".format(_lt, _pt, _st))
         print("valid : loss {}, psnr {}, ssim : {}".format(_lv, _pv, _sv))
-        print("------------------------------------------------------------------------")
 
         if i_epoch % 10 == 0:
             if i_epoch < 100:
