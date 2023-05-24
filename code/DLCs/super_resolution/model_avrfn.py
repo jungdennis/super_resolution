@@ -18,7 +18,7 @@ class SOCA(nn.Module) :
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     def normalizeCov(self, x, iterN, device) :
-        eps = 1e-5
+        eps = 1e-8
         batch_size, channel = x.shape[0], x.shape[-1]
 
         I3 = torch.eye(channel, channel, device=device)
@@ -51,8 +51,6 @@ class SOCA(nn.Module) :
         return y
 
     def forward(self, x):
-
-
         skip = self.identity(x)
 
         batch_size, c, h, w = x.shape#[0], x.shape[1], x.shape[2], x.shape[3]

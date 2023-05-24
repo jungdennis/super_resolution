@@ -76,6 +76,7 @@ elif DATABASE == "SYSU" :
 path_hr = path_img + "HR"
 path_lr = path_img + f"LR_{SCALE_FACTOR}_noise{NOISE}"
 path_sr = path_img + f"SR_{SR_MODEL}"
+# path_sr = path_img + f"SR_{SR_MODEL}_noise{NOISE}"
 
 path_fold = f"/{FOLD}_set"
 
@@ -84,6 +85,7 @@ path_valid_img = "/val/images"
 path_test_img = "/test/images"
 
 path_log = path_device + f"/log/log_sr/{SR_MODEL}/{DATABASE}/{FOLD}_set"
+# path_log = path_device + f"/log/log_sr/{SR_MODEL}_noise{NOISE}/{DATABASE}/{FOLD}_set"
 
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 

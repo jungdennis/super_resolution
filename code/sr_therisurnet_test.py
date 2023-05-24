@@ -20,7 +20,7 @@ from PIL import Image, ImageFilter
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt
-from DLCs.super_resolution.model_therlsurnet import TherlSuRNet
+from DLCs.super_resolution.model_therisurnet import TherISuRNet
 
 # random seed 고정
 SEED = 485
@@ -35,16 +35,17 @@ _scale = 4
 _noise = 30
 _batch = 16
 _csv = True
+_device = "LOCAL"
 
 # Argparse Setting
-parser = argparse.ArgumentParser(description = "TherlSuRNet model을 이용해 Super Resolution을 진행합니다. (Test)")
+parser = argparse.ArgumentParser(description = "ThermISuRNet model을 이용해 Super Resolution을 진행합니다. (Test)")
 
 parser.add_argument('--database', required = False, choices = ["Reg", "SYSU"], default = _database, help = "사용할 데이터베이스 입력 (Reg, SYSU)")
 parser.add_argument('--fold', required = False, choices = ["A", "B"], default = _fold, help = "학습을 진행할 fold 입력 (A, B)")
 parser.add_argument('--scale', required = False, type = int, default = _scale, help = "LR 이미지의 Scale Factor 입력")
 parser.add_argument('--noise', required = False, type = int, default = _noise, help = "LR 이미지 noise의 sigma 값 입력")
 parser.add_argument("--csv", required = False, action='store_true', help = "csv파일에 기록 여부 선택")
-parser.add_argument("--server", required = False, action = 'store_true', help = "neuron 서버로 코드 실행 여부 선택")
+parser.add_argument("--device", required = False, choices = ["LOCAL", "SERVER"], default = _device, help = "학습을 진행 할 기기 입력 (LOCAL, SERVER)")
 
 args = parser.parse_args()
 
@@ -54,8 +55,8 @@ FOLD = args.fold
 SCALE_FACTOR = args.scale
 NOISE = args.noise
 CSV = args.csv
+DEVICE = args.device
 SR_MODEL = "TherlSuRNet"
-DEVICE = "SERVER" if args.server else "LOCAL"
 
 # # 단일 코드로 돌릴 때의 옵션
 # CSV = _csv
@@ -69,7 +70,7 @@ elif DEVICE == "LOCAL" :
 if DATABASE == "Reg" :
     path_img = path_device + "/data/image/"
 elif DATABASE == "SYSU" :
-    path_img = "C:/super_resolution/data/image_SYSU/"
+    path_img = path_device + "/data/image_SYSU/"
 
 path_hr = path_img + "HR"
 path_lr = path_img + f"LR_{SCALE_FACTOR}_noise{NOISE}"
@@ -81,6 +82,7 @@ path_train_img = "/train/images"
 path_valid_img = "/val/images"
 path_test_img = "/test/images"
 
+path_csv = path_device + "/log/log_sr/sr_log.csv"
 path_log = path_device + f"/log/log_sr/{SR_MODEL}/{DATABASE}/{FOLD}_set"
 
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
@@ -158,19 +160,19 @@ class Dataset_for_SR(data.Dataset):
 if __name__ == "__main__":
     if CSV :
         try :
-            log_check = open("C:/super_resolution/log/log_sr/sr_log.csv", "r")
+            log_check = open(path_csv, "r")
             log_check.close()
-            log = open("C:/super_resolution/log/log_sr/sr_log.csv", "a", newline = "")
+            log = open(path_csv, "a", newline = "")
             log_write = csv.writer(log, delimiter=',')
         except :
-            log = open("C:/super_resolution/log/log_sr/sr_log.csv", "a", newline = "")
+            log = open(path_csv, "a", newline = "")
             log_write = csv.writer(log, delimiter = ',')
             log_write.writerow(["date", "database", "fold", "degrade", "mode", "loss", "psnr", "ssim"])
 
     # 기본 설정 : device, scaler, model, loss, epoch, batch_size, random_seed, lr, optimizer, scheduler
     # train 코드의 그것을 그대로 배껴주세요
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    model = TherlSuRNet()
+    model = TherISuRNet()
     model.to(device)
 
     criterion_l1 = torch.nn.L1Loss().to(device)

@@ -1,3 +1,5 @@
+/.idea/
 /data/
 /log/
+/queue_runner/
 /fold_b/

@@ -163,9 +163,10 @@ def imshow_pil(in_pil, concat = None, **kargs):
     if concat is None :
         output = in_pil
     else :
-        output = Image.new('RGB', (2*in_pil.size[0], in_pil.size[1]))
+        in_pil_2 = kargs['concat']
+        output = Image.new('RGB', (in_pil.size[0]+in_pil_2.size[0], max(in_pil.size[1], in_pil_2.size[1])))
         output.paste(in_pil, (0, 0))
-        output.paste(kargs['concat'], (in_pil.size[0], 0))
+        output.paste(in_pil_2, (in_pil.size[0], 0))
 
     plt.imshow(np.array(output))
     plt.show()

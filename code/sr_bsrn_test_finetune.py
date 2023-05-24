@@ -20,7 +20,7 @@ import cv2
 import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
-from DLCs.super_resolution.model_chasnet import ChaSNet
+from DLCs.super_resolution.model_bsrn import BSRN
 
 # random seed 고정
 SEED = 485
@@ -38,7 +38,7 @@ _csv = True
 _device = "LOCAL"
 
 # Argparse Setting
-parser = argparse.ArgumentParser(description = "ChaSNet model을 이용해 Super Resolution을 진행합니다. (Test)")
+parser = argparse.ArgumentParser(description = "BSRN model을 이용해 Super Resolution을 진행합니다. (Test)")
 
 parser.add_argument('--database', required = False, choices = ["Reg", "SYSU"], default = _database, help = "사용할 데이터베이스 입력 (Reg, SYSU)")
 parser.add_argument('--fold', required = False, choices = ["A", "B"], default = _fold, help = "학습을 진행할 fold 입력 (A, B)")
@@ -56,7 +56,7 @@ FOLD = args.fold
 SCALE_FACTOR = args.scale
 NOISE = args.noise
 CSV = args.csv
-SR_MODEL = "ChaSNet"
+SR_MODEL = "BSRN_Fine"
 DEVICE = args.device
 
 # # 단일 코드로 돌릴 때의 옵션
@@ -174,7 +174,7 @@ if __name__ == "__main__":
     # 기본 설정 : device, scaler, model, loss, epoch, batch_size, random_seed, lr, optimizer, scheduler
     # train 코드의 그것을 그대로 배껴주세요
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    model = ChaSNet(upscale=4)
+    model = BSRN(upscale=4)
     model.to(device)
 
     criterion = torch.nn.L1Loss().to(device)
@@ -215,6 +215,7 @@ if __name__ == "__main__":
 
     # test
     model.eval()
+    err_list = []
     for i_dataloader in dataloader_test:
         i_batch_hr, i_batch_lr, i_batch_name = i_dataloader
         i_batch_hr = i_batch_hr.to(device)
@@ -222,22 +223,25 @@ if __name__ == "__main__":
 
         with torch.no_grad():
             i_batch_sr = model(i_batch_lr)
+            _loss_test = criterion(i_batch_sr, i_batch_hr)
 
-            ts_hr = torch.clamp(i_batch_hr[0], min=0, max=1).to(device)
-            ts_sr = torch.clamp(i_batch_sr[0], min=0, max=1).to(device)  # B C H W
-            name = i_batch_name[0]
-
-            # 이미지 저장
-            pil_sr = to_pil_image(ts_sr)
-            try:
-                pil_sr.save(path_sr + path_fold + path_test_img + "/" + name)
-            except:
-                os.makedirs(path_sr + path_fold + path_test_img)
-                pil_sr.save(path_sr + path_fold + path_test_img + "/" + name)
-
+            err_check = torch.all(torch.isnan(_loss_test)) or torch.all(torch.isinf(_loss_test))
+            
+            if err_check:
+                err_list.append(i_batch_name[0])
+                
+                i_batch_sr = torch.clamp(i_batch_sr, min=0, max=1).to(device)
+                _loss_test = criterion(i_batch_sr, i_batch_hr)
+                
+            loss_test.add_item(_loss_test.item())
+        
             # PSNR, SSIM 계산
-            ts_hr = ts_hr.to(device)
-            ts_sr = ts_sr.to(device)
+            ts_hr = i_batch_hr[0].to(device)
+            ts_sr = i_batch_sr[0].to(device)
+            
+            if err_check:
+                ts_hr = torch.clamp(ts_hr, min=0, max=1).to(device)
+                ts_sr = torch.clamp(ts_sr, min=0, max=1).to(device)  # B C H W
 
             ignite_result = ignite_evaluator.run([[torch.unsqueeze(ts_sr, 0),
                                                    torch.unsqueeze(ts_hr, 0)
@@ -245,11 +249,21 @@ if __name__ == "__main__":
 
             _psnr_test = ignite_result.metrics['psnr']
             _ssim_test = ignite_result.metrics['ssim']
+
+            ts_hr = torch.clamp(ts_hr, min=0, max=1).to(device)
+            ts_sr = torch.clamp(ts_sr, min=0, max=1).to(device)  # B C H W
+            name = i_batch_name[0]
+            
+            # 이미지 저장
+            pil_sr = to_pil_image(ts_sr)
+            try:
+                pil_sr.save(path_sr + path_fold + path_test_img + "/" + name)
+            except:
+                os.makedirs(path_sr + path_fold + path_test_img)
+                pil_sr.save(path_sr + path_fold + path_test_img + "/" + name)
+                
             psnr_test.add_item(_psnr_test)
             ssim_test.add_item(_ssim_test)
-
-            _loss_test = criterion(i_batch_sr, i_batch_hr)
-            loss_test.add_item(_loss_test.item())
 
         loss_test.update_batch()
         psnr_test.update_batch()
@@ -264,3 +278,6 @@ if __name__ == "__main__":
         log.close()
 
     print("<Test Result> loss {}, psnr {}, ssim {}".format(_lte, _pte, _ste))
+    if len(err_list) != 0:
+            err_list = sorted(err_list)
+            print(f"Nan/Inf loss in test : {err_list}")

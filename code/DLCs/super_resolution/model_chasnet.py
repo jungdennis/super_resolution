@@ -133,7 +133,7 @@ class Residual(nn.Module):
     def __init__(self, nf):
         super(Residual, self).__init__()
         self.conv1 = conv_block(nf, nf, kernel_size=3, norm_type='batch', act_type='leakyrelu')
-        self.conv2 = conv_block(nf, nf, kernel_size=3, act_type='leakyrelu',dilation=2)
+        self.conv2 = conv_block(nf, nf, kernel_size=3, act_type='leakyrelu', dilation=2)
         self.pa = PA(nf)
         self.ca = CA(nf)
 
